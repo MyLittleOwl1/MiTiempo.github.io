@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meteo España - AEMET</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1e5799 0%, #207cca 51%, #2989d8 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+        
+        .search-container {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        #municipio-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 25px 0 0 25px;
+            font-size: 1rem;
+            outline: none;
+        }
+        
+        #search-btn {
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 0 25px 25px 0;
+            padding: 0 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        #search-btn:hover {
+            background: #e68900;
+        }
+        
+        .current-weather {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .location {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .location-name {
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+        
+        .date-time {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .weather-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .temperature {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+        
+        .weather-icon {
+            font-size: 3rem;
+        }
+        
+        .weather-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .detail-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .detail-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .forecast {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .forecast-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .forecast-list {
+            display: flex;
+            overflow-x: auto;
+            gap: 15px;
+            padding-bottom: 10px;
+        }
+        
+        .forecast-item {
+            min-width: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .forecast-time {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .forecast-temp {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .forecast-desc {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2rem;
+        }
+        
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Scrollbar personalizado */
+        .forecast-list::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .forecast-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .forecast-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+        
+        .forecast-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        .api-key-container {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        #api-key-input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .info-text {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Meteo España</h1>
+            <p class="subtitle">Información meteorológica de AEMET</p>
+        </header>
+        
+        <div class="api-key-container">
+            <input type="text" id="api-key-input" placeholder="Introduce tu API Key de AEMET">
+            <p class="info-text">Puedes obtener una API Key gratuita en opendata.aemet.es</p>
+        </div>
+        
+        <div class="search-container">
+            <input type="text" id="municipio-input" placeholder="Buscar municipio...">
+            <button id="search-btn">Buscar</button>
+        </div>
+        
+        <div id="error-message" class="error hidden"></div>
+        
+        <div id="loading" class="loading hidden">Cargando datos meteorológicos...</div>
+        
+        <div id="current-weather" class="current-weather hidden">
+            <div class="location">
+                <div class="location-name" id="location-name">-</div>
+                <div class="date-time" id="date-time">-</div>
+            </div>
+            
+            <div class="weather-main">
+                <div class="temperature" id="temperature">-</div>
+                <div class="weather-icon" id="weather-icon">☀️</div>
+            </div>
+            
+            <div class="weather-details">
+                <div class="detail-item">
+                    <div class="detail-label">Presión</div>
+                    <div class="detail-value" id="pressure">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Humedad</div>
+                    <div class="detail-value" id="humidity">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Viento</div>
+                    <div class="detail-value" id="wind">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Estado</div>
+                    <div class="detail-value" id="weather-state">-</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="forecast" class="forecast hidden">
+            <div class="forecast-title">Próximas 24 horas</div>
+            <div class="forecast-list" id="forecast-list">
+                <!-- Los elementos de pronóstico se insertarán aquí -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let apiKey = '';
+        let municipioId = '';
+        
+        // Elementos DOM
+        const apiKeyInput = document.getElementById('api-key-input');
+        const municipioInput = document.getElementById('municipio-input');
+        const searchBtn = document.getElementById('search-btn');
+        const errorMessage = document.getElementById('error-message');
+        const loading = document.getElementById('loading');
+        const currentWeather = document.getElementById('current-weather');
+        const forecast = document.getElementById('forecast');
+        
+        // Elementos de datos actuales
+        const locationName = document.getElementById('location-name');
+        const dateTime = document.getElementById('date-time');
+        const temperature = document.getElementById('temperature');
+        const weatherIcon = document.getElementById('weather-icon');
+        const pressure = document.getElementById('pressure');
+        const humidity = document.getElementById('humidity');
+        const wind = document.getElementById('wind');
+        const weatherState = document.getElementById('weather-state');
+        const forecastList = document.getElementById('forecast-list');
+        
+        // Event Listeners
+        searchBtn.addEventListener('click', searchMunicipio);
+        municipioInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchMunicipio();
+            }
+        });
+        
+        apiKeyInput.addEventListener('change', function() {
+            apiKey = apiKeyInput.value.trim();
+            if (apiKey) {
+                localStorage.setItem('aemetApiKey', apiKey);
+            }
+        });
+        
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cargar API Key del localStorage si existe
+            const savedApiKey = localStorage.getItem('aemetApiKey');
+            if (savedApiKey) {
+                apiKey = savedApiKey;
+                apiKeyInput.value = savedApiKey;
+            }
+            
+            // Intentar cargar datos de un municipio por defecto (Madrid)
+            municipioInput.value = 'Madrid';
+        });
+        
+        // Función para buscar municipio
+        async function searchMunicipio() {
+            const municipioNombre = municipioInput.value.trim();
+            if (!municipioNombre) {
+                showError('Por favor, introduce un municipio');
+                return;
+            }
+            
+            if (!apiKey) {
+                showError('Por favor, introduce tu API Key de AEMET');
+                return;
+            }
+            
+            try {
+                showLoading();
+                hideError();
+                
+                // Primero obtenemos el ID del municipio
+                const municipioData = await getMunicipioId(municipioNombre);
+                if (!municipioData || municipioData.length === 0) {
+                    showError('Municipio no encontrado');
+                    return;
+                }
+                
+                // Usamos el primer resultado
+                municipioId = municipioData[0].id;
+                locationName.textContent = municipioData[0].nombre;
+                
+                // Obtenemos los datos meteorológicos
+                await getWeatherData();
+                
+            } catch (error) {
+                console.error('Error al buscar municipio:', error);
+                showError('Error al buscar el municipio: ' + error.message);
+            }
+        }
+        
+        // Función para obtener el ID del municipio
+        async function getMunicipioId(nombre) {
+            try {
+                const response = await fetchWithApiKey(`https://opendata.aemet.es/opendata/api/maestro/municipios`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.estado !== 200) {
+                    throw new Error(data.descripcion || 'Error en la respuesta de AEMET');
+                }
+                
+                // La API de AEMET devuelve primero una URL con los datos reales
+                const datosResponse = await fetch(data.datos);
+                if (!datosResponse.ok) {
+                    throw new Error('Error al obtener datos de municipios');
+                }
+                
+                const municipiosData = await datosResponse.json();
+                
+                // Filtramos por nombre (búsqueda aproximada)
+                const municipios = municipiosData.filter(m => 
+                    m.nombre.toLowerCase().includes(nombre.toLowerCase())
+                );
+                
+                return municipios;
+            } catch (error) {
+                console.error('Error al obtener ID del municipio:', error);
+                throw error;
+            }
+        }
+        
+        // Función para obtener datos meteorológicos actuales
+        async function getWeatherData() {
+            try {
+                // Obtenemos datos de observación
+                const response = await fetchWithApiKey(`https://opendata.aemet.es/opendata/api/observacion/convencional/todas`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.estado !== 200) {
+                    throw new Error(data.descripcion || 'Error en la respuesta de AEMET');
+                }
+                
+                // La API de AEMET devuelve primero una URL con los datos reales
+                const datosResponse = await fetch(data.datos);
+                if (!datosResponse.ok) {
+                    throw new Error('Error al obtener datos de observación');
+                }
+                
+                const observaciones = await datosResponse.json();
+                
+                // Buscamos una estación con datos válidos
+                const estacionConDatos = observaciones.find(est => 
+                    est.temperatura && est.presion && est.humedadRelativa
+                );
+                
+                if (!estacionConDatos) {
+                    throw new Error('No se encontraron datos de observación válidos');
+                }
+                
+                // Actualizamos la interfaz con datos actuales
+                updateCurrentWeather(estacionConDatos);
+                
+                // Obtenemos pronóstico para las próximas 24 horas
+                await getForecastData();
+                
+                hideLoading();
+                showWeatherData();
+                
+            } catch (error) {
+                console.error('Error al obtener datos meteorológicos:', error);
+                showError('Error al obtener datos meteorológicos: ' + error.message);
+                hideLoading();
+            }
+        }
+        
+        // Función para obtener pronóstico
+        async function getForecastData() {
+            try {
+                // Obtenemos pronóstico horario para el municipio
+                const response = await fetchWithApiKey(`https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/${municipioId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.estado !== 200) {
+                    throw new Error(data.descripcion || 'Error en la respuesta de AEMET');
+                }
+                
+                // La API de AEMET devuelve primero una URL con los datos reales
+                const datosResponse = await fetch(data.datos);
+                if (!datosResponse.ok) {
+                    throw new Error('Error al obtener datos de pronóstico');
+                }
+                
+                const forecastData = await datosResponse.json();
+                
+                // Procesamos y mostramos el pronóstico
+                updateForecast(forecastData);
+                
+            } catch (error) {
+                console.error('Error al obtener pronóstico:', error);
+                // No mostramos error para no interrumpir la experiencia
+                showError('No se pudo cargar el pronóstico, pero tenemos datos actuales');
+            }
+        }
+        
+        // Función auxiliar para hacer peticiones con API Key
+        async function fetchWithApiKey(url) {
+            const headers = {
+                'Accept': 'application/json',
+                'api_key': apiKey
+            };
+            
+            return await fetch(url, { headers });
+        }
+        
+        // Función para actualizar datos actuales
+        function updateCurrentWeather(data) {
+            // Actualizar fecha y hora
+            const now = new Date();
+            dateTime.textContent = now.toLocaleDateString('es-ES', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            // Actualizar temperatura
+            if (data.temperatura) {
+                temperature.textContent = `${Math.round(data.temperatura)}°C`;
+            } else {
+                temperature.textContent = '--°C';
+            }
+            
+            // Actualizar presión
+            if (data.presion) {
+                pressure.textContent = `${data.presion} hPa`;
+            } else {
+                pressure.textContent = '-- hPa';
+            }
+            
+            // Actualizar humedad
+            if (data.humedadRelativa) {
+                humidity.textContent = `${data.humedadRelativa}%`;
+            } else {
+                humidity.textContent = '--%';
+            }
+            
+            // Actualizar viento
+            if (data.velViento && data.dirViento) {
+                wind.textContent = `${data.velViento} km/h ${getWindDirection(data.dirViento)}`;
+            } else if (data.velViento) {
+                wind.textContent = `${data.velViento} km/h`;
+            } else {
+                wind.textContent = '-- km/h';
+            }
+            
+            // Actualizar estado del tiempo
+            if (data.estadoCielo) {
+                weatherState.textContent = data.estadoCielo;
+                updateWeatherIcon(data.estadoCielo);
+            } else {
+                weatherState.textContent = '--';
+                weatherIcon.textContent = '🌤️';
+            }
+        }
+        
+        // Función para actualizar pronóstico
+        function updateForecast(data) {
+            // Limpiar lista
+            forecastList.innerHTML = '';
+            
+            if (!data || !data[0] || !data[0].prediccion || !data[0].prediccion.dia) {
+                const noData = document.createElement('div');
+                noData.textContent = 'No hay datos de pronóstico disponibles';
+                noData.style.textAlign = 'center';
+                noData.style.opacity = '0.7';
+                forecastList.appendChild(noData);
+                return;
+            }
+            
+            // Tomamos el primer día de pronóstico
+            const primerDia = data[0].prediccion.dia[0];
+            
+            if (!primerDia || !primerDia.temperatura || !primerDia.temperatura.dato) {
+                const noData = document.createElement('div');
+                noData.textContent = 'No hay datos de temperatura en el pronóstico';
+                noData.style.textAlign = 'center';
+                noData.style.opacity = '0.7';
+                forecastList.appendChild(noData);
+                return;
+            }
+            
+            // Mostramos las temperaturas de las próximas horas
+            const temperaturas = primerDia.temperatura.dato.slice(0, 8); // Primeras 8 horas
+            
+            temperaturas.forEach(temp => {
+                const forecastItem = document.createElement('div');
+                forecastItem.className = 'forecast-item';
+                
+                const time = document.createElement('div');
+                time.className = 'forecast-time';
+                // Formatear hora (asumiendo que viene en formato 24h)
+                const hora = parseInt(temp.hora);
+                time.textContent = `${hora}:00`;
+                
+                const tempElement = document.createElement('div');
+                tempElement.className = 'forecast-temp';
+                tempElement.textContent = `${Math.round(temp.value)}°C`;
+                
+                const desc = document.createElement('div');
+                desc.className = 'forecast-desc';
+                desc.textContent = 'Pronóstico';
+                
+                forecastItem.appendChild(time);
+                forecastItem.appendChild(tempElement);
+                forecastItem.appendChild(desc);
+                
+                forecastList.appendChild(forecastItem);
+            });
+        }
+        
+        // Función para obtener dirección del viento
+        function getWindDirection(degrees) {
+            if (degrees >= 337.5 || degrees < 22.5) return 'N';
+            if (degrees >= 22.5 && degrees < 67.5) return 'NE';
+            if (degrees >= 67.5 && degrees < 112.5) return 'E';
+            if (degrees >= 112.5 && degrees < 157.5) return 'SE';
+            if (degrees >= 157.5 && degrees < 202.5) return 'S';
+            if (degrees >= 202.5 && degrees < 247.5) return 'SO';
+            if (degrees >= 247.5 && degrees < 292.5) return 'O';
+            if (degrees >= 292.5 && degrees < 337.5) return 'NO';
+            return '';
+        }
+        
+        // Función para actualizar icono del tiempo
+        function updateWeatherIcon(state) {
+            const stateLower = state.toLowerCase();
+            
+            if (stateLower.includes('despejado') || stateLower.includes('soleado') || stateLower.includes('cielo despejado')) {
+                weatherIcon.textContent = '☀️';
+            } else if (stateLower.includes('nublado') || stateLower.includes('cubierto') || stateLower.includes('nubes')) {
+                weatherIcon.textContent = '☁️';
+            } else if (stateLower.includes('lluvia') || stateLower.includes('precipitación') || stateLower.includes('chubasco')) {
+                weatherIcon.textContent = '🌧️';
+            } else if (stateLower.includes('nieve')) {
+                weatherIcon.textContent = '❄️';
+            } else if (stateLower.includes('tormenta') || stateLower.includes('rayos')) {
+                weatherIcon.textContent = '⛈️';
+            } else if (stateLower.includes('niebla') || stateLower.includes('bruma')) {
+                weatherIcon.textContent = '🌫️';
+            } else {
+                weatherIcon.textContent = '🌤️';
+            }
+        }
+        
+        // Funciones de utilidad para mostrar/ocultar elementos
+        function showLoading() {
+            loading.classList.remove('hidden');
+            currentWeather.classList.add('hidden');
+            forecast.classList.add('hidden');
+        }
+        
+        function hideLoading() {
+            loading.classList.add('hidden');
+        }
+        
+        function showWeatherData() {
+            currentWeather.classList.remove('hidden');
+            forecast.classList.remove('hidden');
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+        
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
