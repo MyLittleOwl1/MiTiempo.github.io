@@ -34,3 +34,6 @@ export default async function handler(req, res) {
         res.status(500).json({ error: error.message });
     }
 }
+
+// URL de ejemplo para probar la API
+// https://mitiempo.vercel.app/api/weather?url=https%3A%2F%2Fopendata.aemet.es%2Fopendata%2Fapi%2Fmaestro%2Fmunicipios&x-api-key=TU_API_KEY
