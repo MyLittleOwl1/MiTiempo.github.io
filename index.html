@@ -510,10 +510,14 @@
         async function fetchWithApiKey(url) {
             const headers = {
                 'Accept': 'application/json',
-                'api_key': apiKey
+                'x-api-key': apiKey
             };
             
-            return await fetch(url, { headers });
+            // Usar tu backend en Vercel
+            const backendUrl = 'https://tu-proyecto.vercel.app/api/weather';
+            const finalUrl = `${backendUrl}?url=${encodeURIComponent(url)}`;
+            
+            return await fetch(finalUrl, { headers });
         }
         
         // Función para actualizar datos actuales
