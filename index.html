@@ -597,96 +597,118 @@
       }
     }
 
-    // ==========================
-    // HISTÓRICO PRESIÓN (ÚLTIMA SEMANA)
-    // ==========================
+// ==========================
+// HISTÓRICO PRESIÓN (ÚLTIMA SEMANA)
+// ==========================
 
-    function fechaUTC00(d) {
-      const y = d.getUTCFullYear();
-      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(d.getUTCDate()).padStart(2, "0");
-      return `${y}-${m}-${day}T00:00:00UTC`;
+function fechaUTC00(d) {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}T00:00:00UTC`;
+}
+
+function fechaUTC2359(d) {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}T23:59:59UTC`;
+}
+
+async function cargaHistoricoPresion() {
+  const statusEl = document.getElementById("status-presion");
+  statusEl.textContent = "Cargando…";
+  limpiaError("error-presion");
+
+  try {
+    if (!API_KEY || API_KEY === "TU_API_KEY_AEMET_AQUI") {
+      throw new Error("Falta la API Key de AEMET. Edita el código y rellena la constante API_KEY.");
     }
 
-    function fechaUTC2359(d) {
-      const y = d.getUTCFullYear();
-      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(d.getUTCDate()).padStart(2, "0");
-      return `${y}-${m}-${day}T23:59:59UTC`;
+    // Últimos 7 días completos (hoy incluido)
+    const hoyUTC = new Date();
+    const fin = new Date(Date.UTC(
+      hoyUTC.getUTCFullYear(),
+      hoyUTC.getUTCMonth(),
+      hoyUTC.getUTCDate()
+    ));
+    const inicio = new Date(fin);
+    inicio.setUTCDate(inicio.getUTCDate() - 6);
+
+    const fechaIniStr = fechaUTC00(inicio);
+    const fechaFinStr = fechaUTC2359(fin);
+
+    // Endpoint documentado en el HTML de AEMET
+    const ruta =
+      `/api/valores/climatologicos/diarios/datos/fechaini/${fechaIniStr}/fechafin/${fechaFinStr}/estacion/${ID_ESTACION}`;
+    const data = await fetchAemet(ruta);
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("Sin datos climatológicos para la estación en este rango.");
     }
 
-    async function cargaHistoricoPresion() {
-      const statusEl = document.getElementById("status-presion");
-      statusEl.textContent = "Cargando…";
-      limpiaError("error-presion");
+    // Ordenar por fecha ascendente
+    data.sort((a, b) => (a.fecha > b.fecha ? 1 : -1));
 
-      try {
-        if (!API_KEY || API_KEY === "TU_API_KEY_AEMET_AQUI") {
-          throw new Error("Falta la API Key de AEMET. Edita el código y rellena la constante API_KEY.");
-        }
+    // Detectar dinámicamente las claves de presión máxima y mínima
+    const ejemplo = data[0];
+    const claves = Object.keys(ejemplo);
 
-        const hoyUTC = new Date();
-        const fin = new Date(Date.UTC(
-          hoyUTC.getUTCFullYear(),
-          hoyUTC.getUTCMonth(),
-          hoyUTC.getUTCDate()
-        ));
-        const inicio = new Date(fin);
-        inicio.setUTCDate(inicio.getUTCDate() - 6);
+    const clavePresMax = claves.find(k =>
+      k.toLowerCase().includes("pres") && k.toLowerCase().includes("max")
+    );
+    const clavePresMin = claves.find(k =>
+      k.toLowerCase().includes("pres") && k.toLowerCase().includes("min")
+    );
 
-        const fechaIniStr = fechaUTC00(inicio);
-        const fechaFinStr = fechaUTC2359(fin);
+    // Opcional: te ayuda a ver en consola qué campos hay realmente
+    console.log("Ejemplo de día climatológico:", ejemplo);
+    console.log("Clave presión máxima:", clavePresMax, "Clave presión mínima:", clavePresMin);
 
-        const ruta =
-          `/api/valores/climatologicos/diarios/datos/fechaini/${fechaIniStr}/fechafin/${fechaFinStr}/estacion/${ID_ESTACION}`;
-        const data = await fetchAemet(ruta);
+    const tbody = document.getElementById("tabla-presion-cuerpo");
+    tbody.innerHTML = "";
 
-        if (!Array.isArray(data) || data.length === 0) {
-          throw new Error("Sin datos climatológicos para la estación en este rango.");
-        }
+    data.forEach(dia => {
+      const tr = document.createElement("tr");
 
-        data.sort((a, b) => (a.fecha > b.fecha ? 1 : -1));
+      const tdFecha = document.createElement("td");
+      tdFecha.style.padding = "4px 2px";
+      tdFecha.textContent = dia.fecha || "";
 
-        const tbody = document.getElementById("tabla-presion-cuerpo");
-        tbody.innerHTML = "";
+      const tdMax = document.createElement("td");
+      tdMax.style.padding = "4px 2px";
+      tdMax.style.textAlign = "right";
+      const valorMax = clavePresMax ? dia[clavePresMax] : null;
+      tdMax.textContent =
+        valorMax != null && !isNaN(Number(valorMax)) ? Number(valorMax).toFixed(1) : "—";
 
-        data.forEach(dia => {
-          const tr = document.createElement("tr");
+      const tdMin = document.createElement("td");
+      tdMin.style.padding = "4px 2px";
+      tdMin.style.textAlign = "right";
+      const valorMin = clavePresMin ? dia[clavePresMin] : null;
+      tdMin.textContent =
+        valorMin != null && !isNaN(Number(valorMin)) ? Number(valorMin).toFixed(1) : "—";
 
-          const tdFecha = document.createElement("td");
-          tdFecha.style.padding = "4px 2px";
-          tdFecha.textContent = dia.fecha || "";
+      tr.appendChild(tdFecha);
+      tr.appendChild(tdMax);
+      tr.appendChild(tdMin);
+      tbody.appendChild(tr);
+    });
 
-          const tdMax = document.createElement("td");
-          tdMax.style.padding = "4px 2px";
-          tdMax.style.textAlign = "right";
-          tdMax.textContent = dia.presmax != null ? dia.presmax.toFixed(1) : "—";
+    const nombre = data[0].nombre || "";
+    document.getElementById("presion-label").textContent =
+      nombre ? `Estación ${nombre}` : `Estación ${ID_ESTACION}`;
 
-          const tdMin = document.createElement("td");
-          tdMin.style.padding = "4px 2px";
-          tdMin.style.textAlign = "right";
-          tdMin.textContent = dia.presmin != null ? dia.presmin.toFixed(1) : "—";
-
-          tr.appendChild(tdFecha);
-          tr.appendChild(tdMax);
-          tr.appendChild(tdMin);
-          tbody.appendChild(tr);
-        });
-
-        const nombre = data[0].nombre || "";
-        document.getElementById("presion-label").textContent =
-          nombre ? `Estación ${nombre}` : `Estación ${ID_ESTACION}`;
-
-        statusEl.textContent = "Datos actualizados";
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = "Error al cargar";
-        muestraError(
-          "error-presion",
-          "No se ha podido obtener el histórico de presión. Revisa la API Key, el ID de estación o inténtalo más tarde."
-        );
-      }
-    }
+    statusEl.textContent = "Datos actualizados";
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "Error al cargar";
+    muestraError(
+      "error-presion",
+      "No se ha podido obtener el histórico de presión. Revisa la API Key, el ID de estación o inténtalo más tarde."
+    );
+  }
+}
 
     // ==========================
     // INICIALIZACIÓN
