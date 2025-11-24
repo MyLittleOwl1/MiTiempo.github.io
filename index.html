@@ -514,7 +514,7 @@
             };
             
             // Usar tu backend en Vercel
-            const backendUrl = 'https://tu-proyecto.vercel.app/api/weather';
+            const backendUrl = 'https://mitiempo.vercel.app/api/weather';
             const finalUrl = `${backendUrl}?url=${encodeURIComponent(url)}`;
             
             return await fetch(finalUrl, { headers });
