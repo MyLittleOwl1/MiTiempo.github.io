@@ -312,40 +312,6 @@
       </div>
     </section>
 
-    <!-- HISTÓRICO PRESIÓN 7 DÍAS -->
-    <section class="card" id="card-presion">
-      <div class="card-header">
-        <div class="card-title">
-          <span>Histórico presión (7 días)</span>
-          <span class="pill" id="presion-label">Estación —</span>
-        </div>
-        <div class="status-text" id="status-presion">Esperando datos…</div>
-      </div>
-
-      <div style="overflow-x:auto; margin-top:4px;">
-        <table style="width:100%; border-collapse:collapse; font-size:0.7rem;">
-          <thead>
-            <tr style="color:#9ca3af;">
-              <th style="text-align:left; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Fecha
-              </th>
-              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Pres. máx (hPa)
-              </th>
-              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Pres. mín (hPa)
-              </th>
-            </tr>
-          </thead>
-          <tbody id="tabla-presion-cuerpo">
-            <!-- Filas generadas por JS -->
-          </tbody>
-        </table>
-      </div>
-
-      <p class="error hidden" id="error-presion"></p>
-    </section>
-
     <footer>
       Fuente: AEMET OpenData. Esta aplicación no es oficial.
     </footer>
@@ -367,6 +333,7 @@
 
     function formateaFecha(fechaTexto) {
       if (!fechaTexto) return "--";
+      // AEMET suele devolver ISO tipo "2025-11-24T18:00:00" o similar
       const fecha = new Date(fechaTexto);
       if (isNaN(fecha.getTime())) return fechaTexto;
       const opciones = {
@@ -391,6 +358,7 @@
     }
 
     async function fetchAemet(urlConRuta) {
+      // Primera llamada: API AEMET con api_key → JSON con campo "datos"
       const urlPrimaria = `${API_BASE}${urlConRuta}?api_key=${encodeURIComponent(API_KEY)}`;
       const respMeta = await fetch(urlPrimaria);
       if (!respMeta.ok) {
@@ -400,6 +368,7 @@
       if (!meta.datos) {
         throw new Error("Respuesta de AEMET sin campo 'datos'");
       }
+      // Segunda llamada: URL contenida en meta.datos → JSON final
       const respDatos = await fetch(meta.datos);
       if (!respDatos.ok) {
         throw new Error(`Error HTTP AEMET (datos): ${respDatos.status}`);
@@ -428,6 +397,7 @@
           throw new Error("Sin datos de observación para la estación indicada.");
         }
 
+        // Suele venir un array con registros horarios; tomamos el último
         const ultimo = data[data.length - 1];
 
         const temp = ultimo.ta ?? ultimo.tamin ?? ultimo.tamax ?? null;
@@ -436,7 +406,7 @@
         const fecha = ultimo.fint ?? ultimo.fenomeno ?? null;
 
         document.getElementById("temp-actual").innerHTML =
-          (temp !== null ? (temp.toFixed ? temp.toFixed(1) : temp) : "--") + "<span>°C</span>";
+          (temp !== null ? temp.toFixed ? temp.toFixed(1) : temp : "--") + "<span>°C</span>";
         document.getElementById("humedad-actual").textContent =
           `Humedad: ${hum !== null ? hum : "--"} %`;
         document.getElementById("presion-actual").textContent =
@@ -467,6 +437,7 @@
     // ==========================
 
     function extraeHorasPrediccion(json) {
+      // Estructura típica: [ { municipio:..., prediccion: { dia: [ { temperatura:[{periodo,value}], estadoCielo:[{periodo,value}] } ] } } ]
       if (!Array.isArray(json) || json.length === 0) {
         return [];
       }
@@ -480,6 +451,7 @@
       const tempArray = Array.isArray(dia0.temperatura) ? dia0.temperatura : [];
       const cieloArray = Array.isArray(dia0.estadoCielo) ? dia0.estadoCielo : [];
 
+      // Convertimos a un map por periodo (hora)
       const mapaTemp = {};
       tempArray.forEach(t => {
         if (t.periodo != null) {
@@ -494,6 +466,7 @@
         }
       });
 
+      // Creamos una lista combinada de horas
       const horas = Object.keys(mapaTemp)
         .concat(Object.keys(mapaCielo))
         .filter((v, i, arr) => arr.indexOf(v) === i)
@@ -502,9 +475,12 @@
       const ahora = new Date();
       const horaActual = ahora.getHours();
 
+      // Filtramos las próximas 24 horas desde ahora
       const resultado = [];
       for (let i = 0; i < horas.length; i++) {
         const h = parseInt(horas[i], 10);
+        // Simple: si está entre horaActual y horaActual+24 (no controlamos cambio de día de forma estricta)
+        // Para app sencilla es suficiente
         if (h >= horaActual && h < horaActual + 24) {
           resultado.push({
             hora: horas[i],
@@ -514,6 +490,8 @@
         }
       }
 
+      // Si la lógica anterior no devuelve nada (por cómo vienen los periodos),
+      // devolvemos simplemente las primeras 24 entradas ordenadas.
       if (resultado.length === 0) {
         return horas.slice(0, 24).map(h => ({
           hora: h,
@@ -598,106 +576,11 @@
     }
 
     // ==========================
-    // HISTÓRICO PRESIÓN (ÚLTIMA SEMANA)
-    // ==========================
-
-    function fechaUTC00(d) {
-      const y = d.getUTCFullYear();
-      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(d.getUTCDate()).padStart(2, "0");
-      return `${y}-${m}-${day}T00:00:00UTC`;
-    }
-
-    function fechaUTC2359(d) {
-      const y = d.getUTCFullYear();
-      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(d.getUTCDate()).padStart(2, "0");
-      return `${y}-${m}-${day}T23:59:59UTC`;
-    }
-
-    async function cargaHistoricoPresion() {
-      const statusEl = document.getElementById("status-presion");
-      statusEl.textContent = "Cargando…";
-      limpiaError("error-presion");
-
-      try {
-        if (!API_KEY || API_KEY === "TU_API_KEY_AEMET_AQUI") {
-          throw new Error("Falta la API Key de AEMET. Edita el código y rellena la constante API_KEY.");
-        }
-
-        const hoyUTC = new Date();
-        const fin = new Date(Date.UTC(
-          hoyUTC.getUTCFullYear(),
-          hoyUTC.getUTCMonth(),
-          hoyUTC.getUTCDate()
-        ));
-        const inicio = new Date(fin);
-        inicio.setUTCDate(inicio.getUTCDate() - 6);
-
-        const fechaIniStr = fechaUTC00(inicio);
-        const fechaFinStr = fechaUTC2359(fin);
-
-        const ruta =
-          `/api/valores/climatologicos/diarios/datos/fechaini/${fechaIniStr}/fechafin/${fechaFinStr}/estacion/${ID_ESTACION}`;
-        const data = await fetchAemet(ruta);
-
-        if (!Array.isArray(data) || data.length === 0) {
-          throw new Error("Sin datos climatológicos para la estación en este rango.");
-        }
-
-        data.sort((a, b) => (a.fecha > b.fecha ? 1 : -1));
-
-        const tbody = document.getElementById("tabla-presion-cuerpo");
-        tbody.innerHTML = "";
-
-        data.forEach(dia => {
-          const tr = document.createElement("tr");
-
-          const tdFecha = document.createElement("td");
-          tdFecha.style.padding = "4px 2px";
-          tdFecha.textContent = dia.fecha || "";
-
-          const tdMax = document.createElement("td");
-          tdMax.style.padding = "4px 2px";
-          tdMax.style.textAlign = "right";
-          tdMax.textContent = dia.presmax != null ? dia.presmax.toFixed(1) : "—";
-
-          const tdMin = document.createElement("td");
-          tdMin.style.padding = "4px 2px";
-          tdMin.style.textAlign = "right";
-          tdMin.textContent = dia.presmin != null ? dia.presmin.toFixed(1) : "—";
-
-          tr.appendChild(tdFecha);
-          tr.appendChild(tdMax);
-          tr.appendChild(tdMin);
-          tbody.appendChild(tr);
-        });
-
-        const nombre = data[0].nombre || "";
-        document.getElementById("presion-label").textContent =
-          nombre ? `Estación ${nombre}` : `Estación ${ID_ESTACION}`;
-
-        statusEl.textContent = "Datos actualizados";
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = "Error al cargar";
-        muestraError(
-          "error-presion",
-          "No se ha podido obtener el histórico de presión. Revisa la API Key, el ID de estación o inténtalo más tarde."
-        );
-      }
-    }
-
-    // ==========================
     // INICIALIZACIÓN
     // ==========================
 
     async function inicializa() {
-      await Promise.all([
-        cargaTiempoActual(),
-        cargaPrevision(),
-        cargaHistoricoPresion()
-      ]);
+      await Promise.all([cargaTiempoActual(), cargaPrevision()]);
     }
 
     document.getElementById("btn-refresh").addEventListener("click", async () => {
@@ -709,6 +592,7 @@
       btn.textContent = "Actualizar";
     });
 
+    // Carga inicial al abrir la página
     inicializa();
   </script>
 </body>
