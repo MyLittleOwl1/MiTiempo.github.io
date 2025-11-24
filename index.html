@@ -415,7 +415,18 @@
       if (!respDatos.ok) {
         throw new Error(`Error HTTP AEMET (datos): ${respDatos.status}`);
       }
-      return await respDatos.json();
+
+      // Decodifica la respuesta usando el charset que indique el servidor (por defecto UTF-8)
+      const contentType = respDatos.headers.get("content-type") || "";
+      const m = contentType.match(/charset=([^;]+)/i);
+      const charset = m ? m[1].trim().toLowerCase() : "utf-8";
+      const buffer = await respDatos.arrayBuffer();
+      const text = new TextDecoder(charset).decode(buffer);
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        throw new Error("Error parseando JSON de AEMET: " + e.message);
+      }
     }
 
     // ==========================
