@@ -726,7 +726,7 @@ async function cargaHistoricoPresion() {
     });
 
     document.getElementById("presion-label").textContent = "CÓRDOBA AEROPUERTO, ESPAÑA";
-    statusEl.textContent = "Datos actualizados";
+    statusEl.textContent = "";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
