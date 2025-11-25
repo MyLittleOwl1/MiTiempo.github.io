@@ -264,7 +264,8 @@
       <div class="card-header">
         <div class="card-title">
           <span>Tiempo actual</span>
-          <span class="pill" id="station-label">Estación —</span>
+          <!-- <span class="pill" id="station-label">Estación — </span> -->
+          <span class="pill" id="station-label"></span>
         </div>
         <div class="status-text" id="status-actual">Esperando datos…</div>
       </div>
@@ -479,7 +480,8 @@ async function cargaTiempoActual() {
     document.getElementById("chip-fecha").textContent =
       formateaFecha(fecha);
 
-    statusEl.textContent = "Datos actualizados";
+    //statusEl.textContent = "Datos actualizados";
+    statusEl.textContent = "";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
@@ -612,7 +614,8 @@ async function cargaPrevision() {
       ? `Elaborado: ${formateaFecha(elaborado)}`
       : "Elaborado: —";
 
-    statusEl.textContent = "Datos actualizados";
+    //statusEl.textContent = "Datos actualizados";
+    statusEl.textContent = "";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
