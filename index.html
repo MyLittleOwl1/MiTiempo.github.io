@@ -316,7 +316,7 @@
     <section class="card" id="card-presion">
       <div class="card-header">
         <div class="card-title">
-          <span>Histórico presión (7 días)</span>
+          <span>Presión atmosférica por horas</span>
           <span class="pill" id="presion-label">Estación —</span>
         </div>
         <div class="status-text" id="status-presion">Esperando datos…</div>
@@ -330,10 +330,13 @@
                 Fecha
               </th>
               <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Pres. máx (hPa)
+                Presión (hPa)
               </th>
               <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Pres. mín (hPa)
+                Temperatura (°C)
+              </th>
+              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
+                Humedad (%)
               </th>
             </tr>
           </thead>
@@ -670,6 +673,8 @@ async function cargaHistoricoPresion() {
       const f = new Date(reg.fint || reg.fenomeno);
       const hora = f.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
       const pres = reg.pres ?? reg.qnh ?? null;
+      const temp = reg.ta ?? reg.tamin ?? reg.tamax ?? null;
+      const hum = reg.hr ?? reg.humedad ?? reg.h ?? null;
 
       const tr = document.createElement("tr");
 
@@ -681,10 +686,24 @@ async function cargaHistoricoPresion() {
       tdPres.style.padding = "4px 2px";
       tdPres.style.textAlign = "right";
       tdPres.textContent =
-        pres != null && !isNaN(Number(pres)) ? Number(pres).toFixed(1) : "—";
+        pres != null && isFinite(Number(pres)) ? Number(pres).toFixed(1) : "—";
+
+      const tdTemp = document.createElement("td");
+      tdTemp.style.padding = "4px 2px";
+      tdTemp.style.textAlign = "right";
+      tdTemp.textContent =
+        temp != null && isFinite(Number(temp)) ? Number(temp).toFixed(1) : "—";
+
+      const tdHum = document.createElement("td");
+      tdHum.style.padding = "4px 2px";
+      tdHum.style.textAlign = "right";
+      tdHum.textContent =
+        hum != null && isFinite(Number(hum)) ? Number(hum).toFixed(0) : "—";
 
       tr.appendChild(tdHora);
       tr.appendChild(tdPres);
+      tr.appendChild(tdTemp);
+      tr.appendChild(tdHum);
       tbody.appendChild(tr);
     });
 
