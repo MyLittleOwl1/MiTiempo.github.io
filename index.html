@@ -316,8 +316,9 @@
     <section class="card" id="card-presion">
       <div class="card-header">
         <div class="card-title">
-          <span>Presión atmosférica por horas</span>
+          <span>Datos por horas</span>
           <span class="pill" id="presion-label">Estación —</span>
+          <span class="pill" id="presion-fecha">—</span>
         </div>
         <div class="status-text" id="status-presion">Esperando datos…</div>
       </div>
@@ -327,7 +328,7 @@
           <thead>
             <tr style="color:#9ca3af;">
               <th style="text-align:left; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Fecha
+                Hora
               </th>
               <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
                 Presión (hPa)
@@ -707,7 +708,7 @@ async function cargaHistoricoPresion() {
       tbody.appendChild(tr);
     });
 
-    document.getElementById("presion-label").textContent = "Presión horaria de hoy";
+    document.getElementById("presion-label").textContent = "CÓRDOBA AEROPUERTO, ESPAÑA";
     statusEl.textContent = "Datos actualizados";
   } catch (err) {
     console.error(err);
