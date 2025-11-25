@@ -667,6 +667,17 @@ async function cargaHistoricoPresion() {
       return fa - fb;
     });
 
+    // Actualiza la fecha en la cabecera (formato dd/mm/aaaa) usando la fecha del primer registro
+    const elFechaCab = document.getElementById("presion-fecha");
+    if (elFechaCab && deHoy[0]) {
+      const fechaRegistro = new Date(deHoy[0].fint || deHoy[0].fenomeno || Date.now());
+      elFechaCab.textContent = fechaRegistro.toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      });
+    }
+    
     const tbody = document.getElementById("tabla-presion-cuerpo");
     tbody.innerHTML = "";
 
