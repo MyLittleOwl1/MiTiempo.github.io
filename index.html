@@ -359,7 +359,7 @@ xml
 
 const API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJxdWlqb3Rlcm9Ab3V0bG9vay5lcyIsImp0aSI6IjQwMzhlYzI5LTg0ZDUtNGQxNS1iMDBkLTUwOWE0NmI5NjhjYSIsImlzcyI6IkFFTUVUIiwiaWF0IjoxNzQxNTUzNTE0LCJ1c2VySWQiOiI0MDM4ZWMyOS04NGQ1LTRkMTUtYjAwZC01MDlhNDZiOTY4Y2EiLCJyb2xlIjoiIn0.P6gmbNhBkvOo1LfkDw54uISVFuJxuGmc36FmqMZhgOU"; // Pon aquí tu API Key real de AEMET
 const CODIGO_MUNICIPIO = "14021";        // Córdoba
-const ID_ESTACION = "5402";              // Córdoba Aeropuerto (indicativo climatológico)
+const ID_ESTACION = "5402";              // Córdoba Aeropuerto
 const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
 
 function validaApiKey() {
@@ -614,24 +614,11 @@ async function cargaPrevision() {
 }
 
 // ==========================
-// HISTÓRICO PRESIÓN (ÚLTIMA SEMANA)
+// PRESIÓN HORARIA HOY
 // ==========================
 
-function fechaUTC00(d) {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}T00:00:00UTC`;
-}
-
-function fechaUTC2359(d) {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}T23:59:59UTC`;
-}
-
 async function cargaHistoricoPresion() {
+  // Ahora: presión por horas del día actual (no 7 días)
   const statusEl = document.getElementById("status-presion");
   statusEl.textContent = "Cargando…";
   limpiaError("error-presion");
@@ -639,86 +626,76 @@ async function cargaHistoricoPresion() {
   try {
     validaApiKey();
 
-    // Últimos 7 días completos (hoy incluido)
-    const hoyUTC = new Date();
-    const fin = new Date(Date.UTC(
-      hoyUTC.getUTCFullYear(),
-      hoyUTC.getUTCMonth(),
-      hoyUTC.getUTCDate()
-    ));
-    const inicio = new Date(fin);
-    inicio.setUTCDate(inicio.getUTCDate() - 6);
-
-    const fechaIniStr = fechaUTC00(inicio);
-    const fechaFinStr = fechaUTC2359(fin);
-
-    // Climatologías diarias de la estación (endpoint documentado)
-    const ruta =
-      `/api/valores/climatologicos/diarios/datos/fechaini/${fechaIniStr}/fechafin/${fechaFinStr}/estacion/${ID_ESTACION}`;
+    // Usamos de nuevo la observación convencional (últimas 24 h de la estación)
+    const ruta = `/api/observacion/convencional/datos/estacion/${ID_ESTACION}`;
     const data = await fetchAemet(ruta);
 
     if (!Array.isArray(data) || data.length === 0) {
-      throw new Error("Sin datos climatológicos para la estación en este rango.");
+      throw new Error("Sin datos de observación para la estación indicada.");
     }
 
-    // Ordenar por fecha ascendente (campo "fecha" según servicio de climatologías diarias)
-    data.sort((a, b) => (a.fecha > b.fecha ? 1 : -1));
+    const hoy = new Date();
+    const y = hoy.getUTCFullYear();
+    const m = hoy.getUTCMonth();
+    const d = hoy.getUTCDate();
 
-    // Detectar dinámicamente las claves de presión máxima y mínima
-    const ejemplo = data[0];
-    const claves = Object.keys(ejemplo);
+    // Filtra solo los registros del día actual (UTC)
+    const deHoy = data.filter(reg => {
+      const fTexto = reg.fint || reg.fenomeno;
+      if (!fTexto) return false;
+      const f = new Date(fTexto);
+      if (isNaN(f.getTime())) return false;
+      return (
+        f.getUTCFullYear() === y &&
+        f.getUTCMonth() === m &&
+        f.getUTCDate() === d
+      );
+    });
 
-    const clavePresMax = claves.find(k =>
-      k.toLowerCase().includes("pres") && k.toLowerCase().includes("max")
-    );
-    const clavePresMin = claves.find(k =>
-      k.toLowerCase().includes("pres") && k.toLowerCase().includes("min")
-    );
+    if (deHoy.length === 0) {
+      throw new Error("Sin datos de hoy para la estación.");
+    }
 
-    console.log("Ejemplo de día climatológico:", ejemplo);
-    console.log("Clave presión máxima:", clavePresMax, "Clave presión mínima:", clavePresMin);
+    // Ordena por hora ascendente
+    deHoy.sort((a, b) => {
+      const fa = new Date(a.fint || a.fenomeno);
+      const fb = new Date(b.fint || b.fenomeno);
+      return fa - fb;
+    });
 
     const tbody = document.getElementById("tabla-presion-cuerpo");
     tbody.innerHTML = "";
 
-    data.forEach(dia => {
+    deHoy.forEach(reg => {
+      const f = new Date(reg.fint || reg.fenomeno);
+      const hora = f.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+      const pres = reg.pres ?? reg.qnh ?? null;
+
       const tr = document.createElement("tr");
 
-      const tdFecha = document.createElement("td");
-      tdFecha.style.padding = "4px 2px";
-      tdFecha.textContent = dia.fecha || "";
+      const tdHora = document.createElement("td");
+      tdHora.style.padding = "4px 2px";
+      tdHora.textContent = hora;
 
-      const tdMax = document.createElement("td");
-      tdMax.style.padding = "4px 2px";
-      tdMax.style.textAlign = "right";
-      const valorMax = clavePresMax ? dia[clavePresMax] : null;
-      tdMax.textContent =
-        valorMax != null && !isNaN(Number(valorMax)) ? Number(valorMax).toFixed(1) : "—";
+      const tdPres = document.createElement("td");
+      tdPres.style.padding = "4px 2px";
+      tdPres.style.textAlign = "right";
+      tdPres.textContent =
+        pres != null && !isNaN(Number(pres)) ? Number(pres).toFixed(1) : "—";
 
-      const tdMin = document.createElement("td");
-      tdMin.style.padding = "4px 2px";
-      tdMin.style.textAlign = "right";
-      const valorMin = clavePresMin ? dia[clavePresMin] : null;
-      tdMin.textContent =
-        valorMin != null && !isNaN(Number(valorMin)) ? Number(valorMin).toFixed(1) : "—";
-
-      tr.appendChild(tdFecha);
-      tr.appendChild(tdMax);
-      tr.appendChild(tdMin);
+      tr.appendChild(tdHora);
+      tr.appendChild(tdPres);
       tbody.appendChild(tr);
     });
 
-    const nombre = data[0].nombre || "";
-    document.getElementById("presion-label").textContent =
-      nombre ? `Estación ${nombre}` : `Estación ${ID_ESTACION}`;
-
+    document.getElementById("presion-label").textContent = "Presión horaria de hoy";
     statusEl.textContent = "Datos actualizados";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
     muestraError(
       "error-presion",
-      "No se ha podido obtener el histórico de presión. Revisa la API Key, el ID de estación o inténtalo más tarde."
+      "No se ha podido obtener la presión horaria de hoy. Revisa la API Key, el ID de estación o inténtalo más tarde."
     );
   }
 }
