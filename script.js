@@ -114,7 +114,8 @@ async function cargaTiempoActual() {
     document.getElementById("chip-fecha").textContent =
       formateaFecha(fecha);
 
-    statusEl.textContent = "Datos actualizados";
+    //statusEl.textContent = "Datos actualizados";
+    statusEl.textContent = "";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
@@ -247,7 +248,8 @@ async function cargaPrevision() {
       ? `Elaborado: ${formateaFecha(elaborado)}`
       : "Elaborado: —";
 
-    statusEl.textContent = "Datos actualizados";
+    //statusEl.textContent = "Datos actualizados";
+    statusEl.textContent = "";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
