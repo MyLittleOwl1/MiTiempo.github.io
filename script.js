@@ -2,19 +2,14 @@
 // CONFIGURACIÓN BÁSICA
 // ==========================
 
-//const API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJxdWlqb3Rlcm9Ab3V0bG9vay5lcyIsImp0aSI6IjQwMzhlYzI5LTg0ZDUtNGQxNS1iMDBkLTUwOWE0NmI5NjhjYSIsImlzcyI6IkFFTUVUIiwiaWF0IjoxNzQxNTUzNTE0LCJ1c2VySWQiOiI0MDM4ZWMyOS04NGQ1LTRkMTUtYjAwZC01MDlhNDZiOTY4Y2EiLCJyb2xlIjoiIn0.P6gmbNhBkvOo1LfkDw54uISVFuJxuGmc36FmqMZhgOU"; // Pon aquí tu API Key real de AEMET
+const API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJxdWlqb3Rlcm9Ab3V0bG9vay5lcyIsImp0aSI6IjQwMzhlYzI5LTg0ZDUtNGQxNS1iMDBkLTUwOWE0NmI5NjhjYSIsImlzcyI6IkFFTUVUIiwiaWF0IjoxNzQxNTUzNTE0LCJ1c2VySWQiOiI0MDM4ZWMyOS04NGQ1LTRkMTUtYjAwZC01MDlhNDZiOTY4Y2EiLCJyb2xlIjoiIn0.P6gmbNhBkvOo1LfkDw54uISVFuJxuGmc36FmqMZhgOU"; // Pon aquí tu API Key real de AEMET
 const CODIGO_MUNICIPIO = "14021";        // Córdoba
 const ID_ESTACION = "5402";              // Córdoba Aeropuerto
-//const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
+const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
 
 function validaApiKey() {
-  // Si la constante API_KEY no está declarada en el cliente (modo proxy), no validamos.
-  if (typeof API_KEY === "undefined") return;
-
-  // Si está declarada, validamos que tenga mínimo sentido.
-  const key = API_KEY;
-  if (!key || typeof key !== "string" || key.trim().length < 10 || key === "TU_API_KEY_AEMET_AQUI") {
-    throw new Error("Falta la API Key de AEMET en el cliente. Edita el código y rellena la constante API_KEY o usa proxy.php.");
+  if (!API_KEY || typeof API_KEY !== "string" || API_KEY.trim().length < 10 || API_KEY === "TU_API_KEY_AEMET_AQUI") {
+    throw new Error("Falta la API Key de AEMET. Edita el código y rellena la constante API_KEY.");
   }
 }
 
@@ -47,7 +42,7 @@ function limpiaError(id) {
   el.classList.add("hidden");
 }
 
-/*async function fetchAemet(ruta) {
+async function fetchAemet(ruta) {
   // ruta: cadena que empieza por "/api/..."
   const urlPrimaria = `${API_BASE}${ruta}?api_key=${encodeURIComponent(API_KEY)}`;
   const respMeta = await fetch(urlPrimaria);
@@ -72,79 +67,6 @@ function limpiaError(id) {
   const text = new TextDecoder(charset).decode(buffer);
   try {
     return JSON.parse(text);
-  } catch (e) {
-    throw new Error("Error parseando JSON de AEMET: " + e.message);
-  }
-}*/
-
-// Nueva utilidad para comprobar si el texto parece código PHP/HTML
-function pareceHtmlOPhp(text) {
-  if (!text || typeof text !== "string") return false;
-  const t = text.trim();
-  return t.startsWith("<") || t.toLowerCase().includes("<?php") || t.toLowerCase().includes("<!doctype") || t.toLowerCase().includes("<html");
-}
-
-async function fetchAemet(ruta) {
-  const useProxy = (typeof API_KEY === "undefined");
-  if (useProxy) {
-    const urlProxy = `./proxy.php?ruta=${encodeURIComponent(ruta)}`;
-    const resp = await fetch(urlProxy);
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`Error proxy AEMET: ${resp.status} - ${text.slice(0, 200)}`);
-    }
-
-    // Intentamos detectar si la respuesta NO es JSON (por ejemplo código PHP/HTML)
-    const contentType = (resp.headers.get("content-type") || "").toLowerCase();
-    const text = await resp.text();
-    const trimmed = text.trim();
-
-    const isJsonContentType = contentType.includes("application/json") || contentType.includes("text/json");
-    if (!isJsonContentType && pareceHtmlOPhp(trimmed)) {
-      throw new Error("RESPUESTA_PROXY_NO_JSON: proxy.php parece no estar ejecutándose (respuesta HTML/PHP). Asegura que estás usando un servidor con PHP (ej.: php -S localhost:8000). Respuesta: " + trimmed.slice(0, 200));
-    }
-
-    if (!isJsonContentType && !trimmed.startsWith("{") && !trimmed.startsWith("[")) {
-      // No es JSON claro tampoco
-      throw new Error("RESPUESTA_PROXY_NO_JSON: el proxy devuelve texto que no parece JSON. Respuesta: " + trimmed.slice(0, 200));
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      throw new Error("Error parseando JSON desde proxy: " + e.message + " — respuesta: " + trimmed.slice(0, 200));
-    }
-  }
-
-  // Si hay API_KEY en el cliente: mantenemos el flujo original (META -> DATOS)
-  const urlMeta = `${API_BASE}${ruta}?api_key=${encodeURIComponent(API_KEY)}`;
-  const respMeta = await fetch(urlMeta);
-  if (!respMeta.ok) {
-    throw new Error(`Error HTTP AEMET (meta): ${respMeta.status}`);
-  }
-  const meta = await respMeta.json();
-  if (!meta.datos) {
-    throw new Error("Respuesta de AEMET sin campo 'datos'");
-  }
-
-  const respDatos = await fetch(meta.datos);
-  if (!respDatos.ok) {
-    throw new Error(`Error HTTP AEMET (datos): ${respDatos.status}`);
-  }
-
-  // leer texto para soportar distintos charsets (igual que antes)
-  const contentTypeDatos = respDatos.headers.get("content-type") || "";
-  const m = contentTypeDatos.match(/charset=([^;]+)/i);
-  const charset = m ? m[1].trim().toLowerCase() : "utf-8";
-  const buffer = await respDatos.arrayBuffer();
-  const textDatos = new TextDecoder(charset).decode(buffer);
-
-  if (pareceHtmlOPhp(textDatos.trim())) {
-    throw new Error("Respuesta AEMET inesperada (HTML/PHP en vez de JSON).");
-  }
-
-  try {
-    return JSON.parse(textDatos);
   } catch (e) {
     throw new Error("Error parseando JSON de AEMET: " + e.message);
   }
@@ -455,16 +377,6 @@ async function cargaHistoricoPresion() {
 // ==========================
 
 async function inicializa() {
-  // Si no existe API_KEY en cliente y estamos abriendo con file://, el proxy no funcionará.
-  if (typeof API_KEY === "undefined" && location.protocol === "file:") {
-    const mensaje = "Has abierto la app vía file://; proxy.php necesita un servidor PHP. Ejecuta: php -S localhost:8000 -t \"f:\\Mi unidad Google Drive\\Programacion\\GitHub\\MiTiempo.github.io\"";
-    muestraError("error-actual", mensaje);
-    muestraError("error-forecast", mensaje);
-    muestraError("error-presion", mensaje);
-    console.error(mensaje);
-    return;
-  }
-
   await Promise.all([
     cargaTiempoActual(),
     cargaPrevision(),
