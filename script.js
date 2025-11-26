@@ -115,7 +115,7 @@ async function cargaTiempoActual() {
       formateaFecha(fecha);
 
     //statusEl.textContent = "Datos actualizados";
-    statusEl.textContent = "";
+    statusEl.textContent = " ";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
@@ -249,7 +249,7 @@ async function cargaPrevision() {
       : "Elaborado: —";
 
     //statusEl.textContent = "Datos actualizados";
-    statusEl.textContent = "";
+    statusEl.textContent = " ";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
