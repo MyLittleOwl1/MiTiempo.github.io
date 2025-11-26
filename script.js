@@ -8,19 +8,13 @@ const ID_ESTACION = "5402";              // Córdoba Aeropuerto
 //const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
 
 function validaApiKey() {
-  // Si no existe la constante API_KEY en el cliente significa que estamos usando proxy.php
-  // para ocultar la clave en el servidor. En ese caso no validamos nada aquí.
-  if (typeof API_KEY === "undefined") {
-    return;
-  }
+  // Si la constante API_KEY no está declarada en el cliente (modo proxy), no validamos.
+  if (typeof API_KEY === "undefined") return;
 
-  if (
-    !API_KEY ||
-    typeof API_KEY !== "string" ||
-    API_KEY.trim().length < 10 ||
-    API_KEY === "TU_API_KEY_AEMET_AQUI"
-  ) {
-    throw new Error("Falta la API Key de AEMET. Edita el código y rellena la constante API_KEY.");
+  // Si está declarada, validamos que tenga mínimo sentido.
+  const key = API_KEY;
+  if (!key || typeof key !== "string" || key.trim().length < 10 || key === "TU_API_KEY_AEMET_AQUI") {
+    throw new Error("Falta la API Key de AEMET en el cliente. Edita el código y rellena la constante API_KEY o usa proxy.php.");
   }
 }
 
@@ -84,12 +78,44 @@ function limpiaError(id) {
 }*/
 
 async function fetchAemet(ruta) {
-  // ruta: cadena que empieza por "/api/..."
-  const resp = await fetch(`/proxy.php?ruta=${encodeURIComponent(ruta)}`);
-  if (!resp.ok) {
-    throw new Error(`Error HTTP proxy : ${resp.status}`);
+  // Si no hay API_KEY en el cliente, llamamos al proxy (proxy.php?ruta=/api/...)
+  const useProxy = (typeof API_KEY === "undefined");
+  if (useProxy) {
+    const urlProxy = `./proxy.php?ruta=${encodeURIComponent(ruta)}`;
+    const resp = await fetch(urlProxy);
+    if (!resp.ok) {
+      throw new Error(`Error proxy AEMET: ${resp.status}`);
+    }
+    // El proxy devuelve ya el JSON final de datos, así que lo parseamos y lo devolvemos.
+    return await resp.json();
   }
-  return await resp.json();
+
+  // Si hay API_KEY en el cliente: mantenemos el flujo original (META -> DATOS)
+  const urlMeta = `${API_BASE}${ruta}?api_key=${encodeURIComponent(API_KEY)}`;
+  const respMeta = await fetch(urlMeta);
+  if (!respMeta.ok) {
+    throw new Error(`Error HTTP AEMET (meta): ${respMeta.status}`);
+  }
+  const meta = await respMeta.json();
+  if (!meta.datos) {
+    throw new Error("Respuesta de AEMET sin campo 'datos'");
+  }
+
+  const respDatos = await fetch(meta.datos);
+  if (!respDatos.ok) {
+    throw new Error(`Error HTTP AEMET (datos): ${respDatos.status}`);
+  }
+
+  const contentType = respDatos.headers.get("content-type") || "";
+  const m = contentType.match(/charset=([^;]+)/i);
+  const charset = m ? m[1].trim().toLowerCase() : "utf-8";
+  const buffer = await respDatos.arrayBuffer();
+  const text = new TextDecoder(charset).decode(buffer);
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error("Error parseando JSON de AEMET: " + e.message);
+  }
 }
 
 // ==========================
