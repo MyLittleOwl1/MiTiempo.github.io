@@ -78,16 +78,28 @@ function limpiaError(id) {
 }*/
 
 async function fetchAemet(ruta) {
-  // Si no hay API_KEY en el cliente, llamamos al proxy (proxy.php?ruta=/api/...)
   const useProxy = (typeof API_KEY === "undefined");
   if (useProxy) {
     const urlProxy = `./proxy.php?ruta=${encodeURIComponent(ruta)}`;
     const resp = await fetch(urlProxy);
     if (!resp.ok) {
-      throw new Error(`Error proxy AEMET: ${resp.status}`);
+      const text = await resp.text();
+      throw new Error(`Error proxy AEMET: ${resp.status} - ${text.slice(0, 200)}`);
     }
-    // El proxy devuelve ya el JSON final de datos, así que lo parseamos y lo devolvemos.
-    return await resp.json();
+
+    const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+    const text = await resp.text();
+
+    // Detectar si el servidor devuelve PHP/HTML (respuesta inesperada)
+    if (!contentType.includes("application/json") && text.trim().startsWith("<")) {
+      throw new Error("Respuesta del proxy no es JSON. Asegura que proxy.php sea ejecutado por un servidor PHP y no accedas por file://");
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      throw new Error("Error parseando JSON desde proxy: " + e.message + " — respuesta: " + text.slice(0,200));
+    }
   }
 
   // Si hay API_KEY en el cliente: mantenemos el flujo original (META -> DATOS)
