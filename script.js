@@ -223,8 +223,10 @@ const ICONS_SVG = {
 function injectIconStyles() {
   if (document.getElementById("weather-icon-styles")) return;
   const css = `
-    .weather-icon { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; color: #111827; }
-    .weather-icon svg { width: 28px; height:28px; display:block; }
+    .weather-icon { display:inline-flex !important; align-items:center; justify-content:center; vertical-align:middle; --wtc: #0ea5e9; color: var(--wtc) !important; }
+    .weather-icon svg { width: 28px !important; height:28px !important; display:block !important; }
+    /* asegurar que los rasgos del svg se pinten con currentColor */
+    .weather-icon svg * { stroke: currentColor !important; fill: currentColor !important; }
     .forecast-item { display:flex; align-items:center; gap:8px; }
     .forecast-hour { width:48px; font-weight:600; }
     .forecast-desc { min-width:80px; flex:1; }
@@ -251,21 +253,29 @@ function mapCieloToIconKey(desc) {
 
 function createIconElement(key, size = 24, title = "") {
   injectIconStyles();
+  console.log("createIconElement", key, size, title); // debug
   const wrapper = document.createElement("span");
   wrapper.className = "weather-icon";
   wrapper.setAttribute("aria-hidden", "false");
   if (title) wrapper.setAttribute("title", title);
+  // Creamos el contenido SVG
   const svgHtml = ICONS_SVG[key] || ICONS_SVG.unknown;
   wrapper.innerHTML = svgHtml;
   const svg = wrapper.querySelector("svg");
   if (svg) {
+    // Aseguramos namespace (evita problemas de parseo cuando se usa innerHTML)
+    if (!svg.getAttribute("xmlns")) {
+      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    }
     svg.setAttribute("width", size);
     svg.setAttribute("height", size);
     svg.setAttribute("role", "img");
+    // Forzamos stroke/fill para que no dependan de reglas externas
+    svg.style.stroke = "currentColor";
+    svg.style.fill = "currentColor";
     if (title) {
       const titleEl = document.createElement("title");
       titleEl.textContent = title;
-      // remove if title already exists
       const existing = svg.querySelector("title");
       if (existing) existing.remove();
       svg.prepend(titleEl);
