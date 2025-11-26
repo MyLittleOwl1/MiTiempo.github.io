@@ -8,7 +8,18 @@ const ID_ESTACION = "5402";              // Córdoba Aeropuerto
 //const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
 
 function validaApiKey() {
-  if (!API_KEY || typeof API_KEY !== "string" || API_KEY.trim().length < 10 || API_KEY === "TU_API_KEY_AEMET_AQUI") {
+  // Si no existe la constante API_KEY en el cliente significa que estamos usando proxy.php
+  // para ocultar la clave en el servidor. En ese caso no validamos nada aquí.
+  if (typeof API_KEY === "undefined") {
+    return;
+  }
+
+  if (
+    !API_KEY ||
+    typeof API_KEY !== "string" ||
+    API_KEY.trim().length < 10 ||
+    API_KEY === "TU_API_KEY_AEMET_AQUI"
+  ) {
     throw new Error("Falta la API Key de AEMET. Edita el código y rellena la constante API_KEY.");
   }
 }

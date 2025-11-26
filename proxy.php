@@ -37,3 +37,7 @@ if ($respDatos === false) {
     echo json_encode(['error' => 'Error HTTP AEMET (datos)']);
     exit;
 }
+
+// Devuelve al cliente el JSON de datos (sin procesar)
+echo $respDatos;
+exit;
