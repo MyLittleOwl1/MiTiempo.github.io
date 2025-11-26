@@ -98,6 +98,26 @@ async function cargaTiempoActual() {
     const pres = ultimo.pres ?? ultimo.qnh ?? null;
     const fecha = ultimo.fint ?? ultimo.fenomeno ?? null;
 
+    // extrae descripción cielo y muestra icono
+    const cieloDesc = getSkyDescriptionFromObservation(ultimo);
+    // crea contenedor icono-actual si no existe
+    let iconCont = document.getElementById("icono-actual");
+    if (!iconCont) {
+      const tempEl = document.getElementById("temp-actual");
+      iconCont = document.createElement("span");
+      iconCont.id = "icono-actual";
+      iconCont.style.marginRight = "8px";
+      if (tempEl && tempEl.parentNode) {
+        tempEl.parentNode.insertBefore(iconCont, tempEl);
+      } else {
+        // si por alguna razón no existe temp-actual, lo añadimos al body
+        document.body.appendChild(iconCont);
+      }
+    }
+    iconCont.innerHTML = "";
+    const key = mapCieloToIconKey(cieloDesc);
+    iconCont.appendChild(createIconElement(key, 34, cieloDesc || ""));
+
     document.getElementById("temp-actual").innerHTML =
       (temp !== null ? (temp.toFixed ? temp.toFixed(1) : temp) : "--") + "<span>°C</span>";
     document.getElementById("humedad-actual").textContent =
@@ -189,6 +209,91 @@ function extraeHorasPrediccion(json) {
   return resultado.slice(0, 24);
 }
 
+const ICONS_SVG = {
+  sun: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/><g stroke="currentColor"><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></g></svg>`,
+  cloud: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 17.58A4 4 0 0 0 16 14H7.5A4.5 4.5 0 0 1 7.5 5.5 6 6 0 0 1 18 8h1a4 4 0 0 1 0 8z" fill="currentColor" /></svg>`,
+  cloudSun: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2M16.24 5.76l-1.42 1.42M20 12h-2M16.24 18.24l-1.42-1.42M8 21v-2M4.76 16.24l1.42-1.42" stroke="currentColor"/><path d="M20 17.58A4 4 0 0 0 16 14H7.5A4.5 4.5 0 0 1 7.5 5.5 6 6 0 0 1 14 9h1" fill="currentColor"/></svg>`,
+  rain: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 16.58A4 4 0 0 0 16 13H7.5A4.5 4.5 0 0 1 7.5 4.5 6 6 0 0 1 14 8h2" fill="currentColor"/><path d="M8 19v3M12 18v4M16 19v3" stroke="currentColor"/></svg>`,
+  thunder: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 10V3l-2 2M20 16.58A4 4 0 0 0 16 13H7.5A4.5 4.5 0 0 1 7.5 4.5 6 6 0 0 1 14 8h2" fill="currentColor"/><path d="M13 13l-3 6 4-1-2 4" stroke="currentColor"/></svg>`,
+  snow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 17.58A4 4 0 0 0 16 14H7.5A4.5 4.5 0 0 1 7.5 5.5 6 6 0 0 1 14 8h1" fill="currentColor"/><g stroke="currentColor"><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="16" x2="12" y2="20"/><line x1="16" y1="18" x2="16" y2="18"/></g></svg>`,
+  fog: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 17.58A4 4 0 0 0 16 14H7.5A4.5 4.5 0 0 1 7.5 5.5 6 6 0 0 1 14 8h2" fill="currentColor"/><path d="M3 18h18M2 13h20" stroke="currentColor"/></svg>`,
+  unknown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor"/><path d="M9.09 9a3 3 0 1 1 5.82 1c0 1.38-1.75 2-2.91 3M12 17h.01" stroke="currentColor"/></svg>`
+};
+
+function injectIconStyles() {
+  if (document.getElementById("weather-icon-styles")) return;
+  const css = `
+    .weather-icon { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; color: #111827; }
+    .weather-icon svg { width: 28px; height:28px; display:block; }
+    .forecast-item { display:flex; align-items:center; gap:8px; }
+    .forecast-hour { width:48px; font-weight:600; }
+    .forecast-desc { min-width:80px; flex:1; }
+  `;
+  const style = document.createElement("style");
+  style.id = "weather-icon-styles";
+  style.textContent = css;
+  document.head.appendChild(style);
+}
+
+function mapCieloToIconKey(desc) {
+  if (!desc || typeof desc !== "string") return "unknown";
+  const s = desc.toLowerCase();
+  if (s.includes("tormenta") || s.includes("chub") || s.includes("torrencial")) return "thunder";
+  if (s.includes("lluv") || s.includes("lluvia") || s.includes("chaparrón")) return "rain";
+  if (s.includes("nieve")) return "snow";
+  if (s.includes("niebla") || s.includes("bruma") || s.includes("neblina") || s.includes("calima")) return "fog";
+  if (s.includes("despejado") || s.includes("poco nuboso") || s.includes("soleado") || s.includes("sol")) return "sun";
+  if (s.includes("intervalos de nubes") || s.includes("intervalos nubosos") || s.includes("nuboso") || s.includes("nubes") || s.includes("cubierto")) return "cloud";
+  if (s.includes("nubes altas")) return "cloud";
+  if (s.includes("cielo") && s.includes("despejado")) return "sun";
+  return "unknown";
+}
+
+function createIconElement(key, size = 24, title = "") {
+  injectIconStyles();
+  const wrapper = document.createElement("span");
+  wrapper.className = "weather-icon";
+  wrapper.setAttribute("aria-hidden", "false");
+  if (title) wrapper.setAttribute("title", title);
+  const svgHtml = ICONS_SVG[key] || ICONS_SVG.unknown;
+  wrapper.innerHTML = svgHtml;
+  const svg = wrapper.querySelector("svg");
+  if (svg) {
+    svg.setAttribute("width", size);
+    svg.setAttribute("height", size);
+    svg.setAttribute("role", "img");
+    if (title) {
+      const titleEl = document.createElement("title");
+      titleEl.textContent = title;
+      // remove if title already exists
+      const existing = svg.querySelector("title");
+      if (existing) existing.remove();
+      svg.prepend(titleEl);
+    }
+  }
+  return wrapper;
+}
+
+function getSkyDescriptionFromObservation(obs) {
+  // obs may have estadoCielo as array/object/string; try to extract a human message
+  if (!obs) return null;
+  let desc = null;
+  if (Array.isArray(obs.estadoCielo) && obs.estadoCielo.length > 0) {
+    // some objetos: {periodo:..., descripcion:..., value:...}
+    const el = obs.estadoCielo[0];
+    desc = el.descripcion || el.value || el;
+  } else if (typeof obs.estadoCielo === "object" && obs.estadoCielo !== null) {
+    desc = obs.estadoCielo.descripcion || obs.estadoCielo.value || null;
+  } else if (typeof obs.estadoCielo === "string") {
+    desc = obs.estadoCielo;
+  } else if (obs.descripcion) {
+    desc = obs.descripcion;
+  } else if (obs.fenomeno) {
+    desc = obs.fenomeno;
+  }
+  return desc || null;
+}
+
 function pintaPrevision(listaHoras, nombreMunicipio) {
   const cont = document.getElementById("forecast-list");
   cont.innerHTML = "";
@@ -202,6 +307,9 @@ function pintaPrevision(listaHoras, nombreMunicipio) {
     const div = document.createElement("div");
     div.className = "forecast-item";
 
+    const iconKey = mapCieloToIconKey(item.cielo);
+    const iconEl = createIconElement(iconKey, 22, item.cielo || "");
+
     const hEl = document.createElement("div");
     hEl.className = "forecast-hour";
     hEl.textContent = `${item.hora} h`;
@@ -214,6 +322,7 @@ function pintaPrevision(listaHoras, nombreMunicipio) {
     dEl.className = "forecast-desc";
     dEl.textContent = item.cielo || "—";
 
+    div.appendChild(iconEl);
     div.appendChild(hEl);
     div.appendChild(tEl);
     div.appendChild(dEl);
