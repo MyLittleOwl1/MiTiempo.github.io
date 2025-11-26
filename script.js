@@ -2,10 +2,10 @@
 // CONFIGURACIÓN BÁSICA
 // ==========================
 
-const API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJxdWlqb3Rlcm9Ab3V0bG9vay5lcyIsImp0aSI6IjQwMzhlYzI5LTg0ZDUtNGQxNS1iMDBkLTUwOWE0NmI5NjhjYSIsImlzcyI6IkFFTUVUIiwiaWF0IjoxNzQxNTUzNTE0LCJ1c2VySWQiOiI0MDM4ZWMyOS04NGQ1LTRkMTUtYjAwZC01MDlhNDZiOTY4Y2EiLCJyb2xlIjoiIn0.P6gmbNhBkvOo1LfkDw54uISVFuJxuGmc36FmqMZhgOU"; // Pon aquí tu API Key real de AEMET
+//const API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJxdWlqb3Rlcm9Ab3V0bG9vay5lcyIsImp0aSI6IjQwMzhlYzI5LTg0ZDUtNGQxNS1iMDBkLTUwOWE0NmI5NjhjYSIsImlzcyI6IkFFTUVUIiwiaWF0IjoxNzQxNTUzNTE0LCJ1c2VySWQiOiI0MDM4ZWMyOS04NGQ1LTRkMTUtYjAwZC01MDlhNDZiOTY4Y2EiLCJyb2xlIjoiIn0.P6gmbNhBkvOo1LfkDw54uISVFuJxuGmc36FmqMZhgOU"; // Pon aquí tu API Key real de AEMET
 const CODIGO_MUNICIPIO = "14021";        // Córdoba
 const ID_ESTACION = "5402";              // Córdoba Aeropuerto
-const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
+//const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
 
 function validaApiKey() {
   if (!API_KEY || typeof API_KEY !== "string" || API_KEY.trim().length < 10 || API_KEY === "TU_API_KEY_AEMET_AQUI") {
@@ -42,7 +42,7 @@ function limpiaError(id) {
   el.classList.add("hidden");
 }
 
-async function fetchAemet(ruta) {
+/*async function fetchAemet(ruta) {
   // ruta: cadena que empieza por "/api/..."
   const urlPrimaria = `${API_BASE}${ruta}?api_key=${encodeURIComponent(API_KEY)}`;
   const respMeta = await fetch(urlPrimaria);
@@ -70,6 +70,15 @@ async function fetchAemet(ruta) {
   } catch (e) {
     throw new Error("Error parseando JSON de AEMET: " + e.message);
   }
+}*/
+
+async function fetchAemet(ruta) {
+  // ruta: cadena que empieza por "/api/..."
+  const resp = await fetch(`/proxy.php?ruta=${encodeURIComponent(ruta)}`);
+  if (!resp.ok) {
+    throw new Error(`Error HTTP proxy : ${resp.status}`);
+  }
+  return await resp.json();
 }
 
 // ==========================
