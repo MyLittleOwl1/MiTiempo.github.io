@@ -77,6 +77,13 @@ function limpiaError(id) {
   }
 }*/
 
+// Nueva utilidad para comprobar si el texto parece código PHP/HTML
+function pareceHtmlOPhp(text) {
+  if (!text || typeof text !== "string") return false;
+  const t = text.trim();
+  return t.startsWith("<") || t.toLowerCase().includes("<?php") || t.toLowerCase().includes("<!doctype") || t.toLowerCase().includes("<html");
+}
+
 async function fetchAemet(ruta) {
   const useProxy = (typeof API_KEY === "undefined");
   if (useProxy) {
@@ -87,18 +94,25 @@ async function fetchAemet(ruta) {
       throw new Error(`Error proxy AEMET: ${resp.status} - ${text.slice(0, 200)}`);
     }
 
+    // Intentamos detectar si la respuesta NO es JSON (por ejemplo código PHP/HTML)
     const contentType = (resp.headers.get("content-type") || "").toLowerCase();
     const text = await resp.text();
+    const trimmed = text.trim();
 
-    // Detectar si el servidor devuelve PHP/HTML (respuesta inesperada)
-    if (!contentType.includes("application/json") && text.trim().startsWith("<")) {
-      throw new Error("Respuesta del proxy no es JSON. Asegura que proxy.php sea ejecutado por un servidor PHP y no accedas por file://");
+    const isJsonContentType = contentType.includes("application/json") || contentType.includes("text/json");
+    if (!isJsonContentType && pareceHtmlOPhp(trimmed)) {
+      throw new Error("RESPUESTA_PROXY_NO_JSON: proxy.php parece no estar ejecutándose (respuesta HTML/PHP). Asegura que estás usando un servidor con PHP (ej.: php -S localhost:8000). Respuesta: " + trimmed.slice(0, 200));
+    }
+
+    if (!isJsonContentType && !trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+      // No es JSON claro tampoco
+      throw new Error("RESPUESTA_PROXY_NO_JSON: el proxy devuelve texto que no parece JSON. Respuesta: " + trimmed.slice(0, 200));
     }
 
     try {
       return JSON.parse(text);
     } catch (e) {
-      throw new Error("Error parseando JSON desde proxy: " + e.message + " — respuesta: " + text.slice(0,200));
+      throw new Error("Error parseando JSON desde proxy: " + e.message + " — respuesta: " + trimmed.slice(0, 200));
     }
   }
 
@@ -118,13 +132,19 @@ async function fetchAemet(ruta) {
     throw new Error(`Error HTTP AEMET (datos): ${respDatos.status}`);
   }
 
-  const contentType = respDatos.headers.get("content-type") || "";
-  const m = contentType.match(/charset=([^;]+)/i);
+  // leer texto para soportar distintos charsets (igual que antes)
+  const contentTypeDatos = respDatos.headers.get("content-type") || "";
+  const m = contentTypeDatos.match(/charset=([^;]+)/i);
   const charset = m ? m[1].trim().toLowerCase() : "utf-8";
   const buffer = await respDatos.arrayBuffer();
-  const text = new TextDecoder(charset).decode(buffer);
+  const textDatos = new TextDecoder(charset).decode(buffer);
+
+  if (pareceHtmlOPhp(textDatos.trim())) {
+    throw new Error("Respuesta AEMET inesperada (HTML/PHP en vez de JSON).");
+  }
+
   try {
-    return JSON.parse(text);
+    return JSON.parse(textDatos);
   } catch (e) {
     throw new Error("Error parseando JSON de AEMET: " + e.message);
   }
@@ -435,6 +455,16 @@ async function cargaHistoricoPresion() {
 // ==========================
 
 async function inicializa() {
+  // Si no existe API_KEY en cliente y estamos abriendo con file://, el proxy no funcionará.
+  if (typeof API_KEY === "undefined" && location.protocol === "file:") {
+    const mensaje = "Has abierto la app vía file://; proxy.php necesita un servidor PHP. Ejecuta: php -S localhost:8000 -t \"f:\\Mi unidad Google Drive\\Programacion\\GitHub\\MiTiempo.github.io\"";
+    muestraError("error-actual", mensaje);
+    muestraError("error-forecast", mensaje);
+    muestraError("error-presion", mensaje);
+    console.error(mensaje);
+    return;
+  }
+
   await Promise.all([
     cargaTiempoActual(),
     cargaPrevision(),
