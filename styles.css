@@ -1,4 +1,4 @@
- :root {
+:root {
       --color-bg: #0b1120;
       --color-bg-card: #111827;
       --color-accent: #38bdf8;
@@ -193,17 +193,19 @@
     }
 
     .btn-refresh {
-      padding: 6px 10px;
-      font-size: 0.75rem;
-      border-radius: 999px;
-      border: 1px solid rgba(56, 189, 248, 0.7);
-      background: linear-gradient(to right, #22d3ee, #3b82f6);
-      color: #0b1120;
-      font-weight: 600;
-      cursor: pointer;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--color-accent, #38bdf8);
+      color: var(--color-bg); /* contraste: texto oscuro sobre botón claro */
+      border: none;
+      font-size: 0.95rem;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      min-height: 36px;
+      min-width: 36px;
     }
 
     .btn-refresh:disabled {
@@ -229,11 +231,65 @@
       text-align: center;
     }
 
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 6px;
+      width: 100%;
+    }
+
+    .control-label {
+      font-size: 0.95rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 50%;
+    }
+
+    .mobile-select {
+      width: 100%;
+      min-width: 100px;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      border-radius: 8px;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      background: var(--bg-input, #011850);
+      color: var(--color-text, #e5e7eb);
+      box-sizing: border-box;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
     @media (min-width: 640px) {
       body {
         padding: 16px;
       }
       .app-title {
         font-size: 1.7rem;
+      }
+    }
+
+    /* layout en pantallas pequeñas: apilar verticalmente */
+    @media (max-width: 640px) {
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .control-label {
+        width: 100%;
+      }
+      .btn-refresh {
+        width: 100%;
+        margin-top: 6px;
+        min-height: 40px;
+        font-size: 1rem;
+      }
+    }
+
+    /* Opcional: mantener estilos en pantallas grandes */
+    @media (min-width: 641px) {
+      .control-label {
+        font-size: 0.9rem;
       }
     }

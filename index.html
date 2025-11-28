@@ -22,10 +22,25 @@
     <section class="card" id="card-actual">
       <div class="card-header">
         <div class="card-title">
-          <span>Tiempo actual</span>
-          <span class="pill" id="station-label">Estación —</span>
         </div>
-        <div class="status-text" id="status-actual">Esperando datos…</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="status-text" id="status-actual">Esperando datos…</div>
+          <button id="btn-refresca" class="btn-refresh" title="Refrescar datos" aria-label="Refrescar datos">
+            ↻
+          </button>
+        </div>
+      </div>
+
+      <!-- SELECT PROVINCIA / ESTACIÓN (responsive para móvil) -->
+      <div class="controls" id="controls-estacion" aria-label="Selector de provincia y estación">
+        <label class="control-label" for="provincia-select">
+          Provincia
+          <select id="provincia-select" class="mobile-select" aria-label="Provincia"></select>
+        </label>
+        <label class="control-label" for="estacion-select">
+          Estación
+          <select id="estacion-select" class="mobile-select" aria-label="Estación"></select>
+        </label>
       </div>
 
       <div class="current-main">

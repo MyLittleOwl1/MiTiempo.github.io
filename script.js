@@ -3,9 +3,13 @@
 // ==========================
 
 const API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJxdWlqb3Rlcm9Ab3V0bG9vay5lcyIsImp0aSI6IjQwMzhlYzI5LTg0ZDUtNGQxNS1iMDBkLTUwOWE0NmI5NjhjYSIsImlzcyI6IkFFTUVUIiwiaWF0IjoxNzQxNTUzNTE0LCJ1c2VySWQiOiI0MDM4ZWMyOS04NGQ1LTRkMTUtYjAwZC01MDlhNDZiOTY4Y2EiLCJyb2xlIjoiIn0.P6gmbNhBkvOo1LfkDw54uISVFuJxuGmc36FmqMZhgOU"; // Pon aquí tu API Key real de AEMET
-const CODIGO_MUNICIPIO = "14021";        // Córdoba
-const ID_ESTACION = "5402";              // Córdoba Aeropuerto
+let CODIGO_MUNICIPIO = "14021";        // Córdoba (mantengo por defecto)
+// Default: estación por defecto (se puede cambiar con el select)
+let ID_ESTACION = "5402";              // Córdoba Aeropuerto (modificable dinámicamente)
 const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
+
+// Cargamos fichero de estaciones una vez
+let ESTACIONES = []; // array completo de estaciones (cargado desde JSON)
 
 function validaApiKey() {
   if (!API_KEY || typeof API_KEY !== "string" || API_KEY.trim().length < 10 || API_KEY === "TU_API_KEY_AEMET_AQUI") {
@@ -498,11 +502,21 @@ async function cargaHistoricoPresion() {
 // ==========================
 
 async function inicializa() {
-  await Promise.all([
-    cargaTiempoActual(),
-    cargaPrevision(),
-    cargaHistoricoPresion()
-  ]);
+  try {
+    await cargaListaEstaciones();
+    const btnRef = document.getElementById("btn-refresca");
+    if (btnRef && !btnRef.dataset.listenerAttached) {
+      btnRef.addEventListener("click", refrescaDatos);
+      btnRef.dataset.listenerAttached = "1";
+    }
+    await Promise.all([
+      cargaTiempoActual(),
+      cargaPrevision(),
+      cargaHistoricoPresion()
+    ]);
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 document.getElementById("btn-refresh").addEventListener("click", async () => {
@@ -514,4 +528,84 @@ document.getElementById("btn-refresh").addEventListener("click", async () => {
   btn.textContent = "Actualizar";
 });
 
+// Carga y crea las opciones de Provincia y Estación desde el JSON local
+async function cargaListaEstaciones() {
+  try {
+    const resp = await fetch("Estaciones_AEMET_Completo.json");
+    if (!resp.ok) throw new Error("No se pudo cargar Estaciones_AEMET_Completo.json");
+    ESTACIONES = await resp.json();
+
+    // Provincias (unicas y ordenadas)
+    const provincias = Array.from(new Set(ESTACIONES.map(s => s.Provincia).filter(Boolean))).sort((a,b)=> a.localeCompare(b, 'es'));
+    const selectProv = document.getElementById("provincia-select");
+    selectProv.innerHTML = '<option value="">— Selecciona provincia —</option>';
+    provincias.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = p;
+      selectProv.appendChild(opt);
+    });
+
+    // Si la estación por defecto existe en la lista, seleccionamos su provincia y la llenamos
+    const estDefault = ESTACIONES.find(e => (e["Código_AEMET"] || e.Codigo_AEMET) == ID_ESTACION);
+    if (estDefault) {
+      selectProv.value = estDefault.Provincia || "";
+      llenaSelectEstaciones(selectProv.value);
+      document.getElementById("estacion-select").value = estDefault["Código_AEMET"] || estDefault.Código_AEMET;
+      actualizaEtiquetaEstacion();
+    } else {
+      // Si no, no seleccionar nada
+      if (provincias.length) selectProv.value = provincias[0];
+      llenaSelectEstaciones(selectProv.value);
+    }
+
+    // listeners
+    selectProv.addEventListener("change", (e) => llenaSelectEstaciones(e.target.value));
+    document.getElementById("estacion-select").addEventListener("change", (e) => {
+      ID_ESTACION = e.target.value;
+      actualizaEtiquetaEstacion();
+      refrescaDatos();
+    });
+    // Usa un único botón de refresco (en la cabecera)
+    const btnRef = document.getElementById("btn-refresca");
+    if (btnRef) {
+      btnRef.addEventListener("click", (e) => {
+        refrescaDatos();
+      });
+    }
+  } catch (err) {
+    console.error("Error cargando estaciones:", err);
+    // No bloqueamos la app si no puede cargarse el JSON, se usa la estacion por defecto
+  }
+}
+
+function llenaSelectEstaciones(provincia) {
+  const selectEst = document.getElementById("estacion-select");
+  selectEst.innerHTML = '<option value="">— Selecciona estación —</option>';
+  const estacionesProv = ESTACIONES.filter(s => (s.Provincia || "").trim().toLowerCase() === (provincia || "").trim().toLowerCase());
+  estacionesProv.sort((a,b)=> (a.Nombre||"").localeCompare(b.Nombre || "", 'es'));
+  estacionesProv.forEach(est => {
+    const opt = document.createElement("option");
+    opt.value = est["Código_AEMET"] || est.Código_AEMET;
+    opt.textContent = `${(est.Nombre || est.Nombre)} — ${opt.value}`;
+    selectEst.appendChild(opt);
+  });
+}
+
+function actualizaEtiquetaEstacion() {
+  const el = document.getElementById("station-label");
+  const est = ESTACIONES.find(s => (s["Código_AEMET"] || s.Código_AEMET) == ID_ESTACION);
+  if (el) {
+    el.textContent = est ? `${est.Nombre} — ${ID_ESTACION}` : `Estación ${ID_ESTACION}`;
+  }
+}
+
+function refrescaDatos() {
+  // actualiza datos con la estacion seleccionada
+  cargaTiempoActual();
+  cargaPrevision();
+  cargaHistoricoPresion();
+}
+
+// Inicializa la aplicación
 inicializa();
