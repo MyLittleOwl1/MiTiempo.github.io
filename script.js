@@ -80,73 +80,111 @@ async function fetchAemet(ruta) {
 // TIEMPO ACTUAL (OBSERVACIÓN)
 // ==========================
 
+// Helper: actualiza solo el campo de temperatura (no reescribe todo el contenedor)
+function muestraTemperatura(valor) {
+  const el = document.getElementById("temp-actual");
+  if (!el) return;
+  if (valor === null || valor === undefined || isNaN(Number(valor))) {
+    el.innerHTML = '--<span>°C</span>';
+  } else {
+    el.innerHTML = `${Number(valor).toFixed(1)}<span>°C</span>`;
+  }
+}
+
+// Helpers para otros datos
+function muestraHumedad(valor) {
+  const el = document.getElementById("humedad-actual");
+  if (!el) return;
+  el.textContent = `Humedad: ${valor != null && isFinite(Number(valor)) ? Math.round(Number(valor)) + ' %' : '-- %'}`;
+}
+
+function muestraPresion(valor) {
+  const el = document.getElementById("presion-actual");
+  if (!el) return;
+  el.textContent = `Presión: ${valor != null && isFinite(Number(valor)) ? Number(valor).toFixed(1) + ' hPa' : '-- hPa'}`;
+}
+
+function muestraActualizado(texto) {
+  const el = document.getElementById("actualizado-actual");
+  if (!el) return;
+  el.textContent = `Actualizado: ${texto || '--'}`;
+}
+
+// Garantiza que existan los elementos current (si algún innerHTML los borró)
+function garantizaPlaceholdersCurrentMain() {
+  const cont = document.querySelector(".current-main");
+  if (!cont) return;
+
+  if (!cont.querySelector("#temp-actual")) {
+    cont.insertAdjacentHTML("afterbegin", '<div class="current-temp" id="temp-actual">--<span>°C</span></div>');
+  }
+  if (!cont.querySelector("#humedad-actual")) {
+    cont.querySelector(".current-extra")?.insertAdjacentHTML("afterbegin", '<span id="humedad-actual">Humedad: -- %</span>');
+  }
+  if (!cont.querySelector("#presion-actual")) {
+    cont.querySelector(".current-extra")?.insertAdjacentHTML("beforeend", '<span id="presion-actual">Presión: -- hPa</span>');
+  }
+  if (!cont.querySelector("#actualizado-actual")) {
+    cont.querySelector(".current-extra")?.insertAdjacentHTML("beforeend", '<span id="actualizado-actual">Actualizado: --</span>');
+  }
+}
+
+// Reemplaza contiene previous implementación de cargaTiempoActual() por esta versión robusta
 async function cargaTiempoActual() {
-  const statusEl = document.getElementById("status-actual");
-  statusEl.textContent = "Cargando…";
+  garantizaPlaceholdersCurrentMain();
+  muestraTemperatura(null);
+  muestraHumedad(null);
+  muestraPresion(null);
+  muestraActualizado(null);
   limpiaError("error-actual");
 
   try {
     validaApiKey();
 
+    // Usamos la estación seleccionada (ID_ESTACION) para observación
     const ruta = `/api/observacion/convencional/datos/estacion/${ID_ESTACION}`;
-    const data = await fetchAemet(ruta);
+    const datos = await fetchAemet(ruta);
 
-    if (!Array.isArray(data) || data.length === 0) {
-      throw new Error("Sin datos de observación para la estación indicada.");
+    if (!Array.isArray(datos) || datos.length === 0) {
+      muestraTemperatura(null);
+      muestraExtra("Sin datos actuales");
+      throw new Error("Sin observaciones");
     }
 
-    const ultimo = data[data.length - 1];
+    // Elige el primer registro válido (último disponible)
+    // Algunos endpoints devuelven array con el último primero, otros no; preferimos el último por fecha
+    datos.sort((a,b) => new Date(a.fint || a.fenomeno) - new Date(b.fint || b.fenomeno));
+    const reg = datos[datos.length - 1];
 
-    const temp = ultimo.ta ?? ultimo.tamin ?? ultimo.tamax ?? null;
-    const hum = ultimo.hr ?? null;
-    const pres = ultimo.pres ?? ultimo.qnh ?? null;
-    const fecha = ultimo.fint ?? ultimo.fenomeno ?? null;
+    const temp = reg.ta ?? reg.temperature ?? reg.tamin ?? reg.tamax ?? null;
+    const hum = reg.hr ?? reg.humedad ?? reg.h ?? null;
+    const pres = reg.pres ?? reg.qnh ?? null;
+    const fecha = new Date(reg.fint || reg.fenomeno || Date.now()).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 
-    // extrae descripción cielo y muestra icono
-    const cieloDesc = getSkyDescriptionFromObservation(ultimo);
-    // crea contenedor icono-actual si no existe
-    let iconCont = document.getElementById("icono-actual");
-    if (!iconCont) {
-      const tempEl = document.getElementById("temp-actual");
-      iconCont = document.createElement("span");
-      iconCont.id = "icono-actual";
-      iconCont.style.marginRight = "8px";
-      if (tempEl && tempEl.parentNode) {
-        tempEl.parentNode.insertBefore(iconCont, tempEl);
-      } else {
-        // si por alguna razón no existe temp-actual, lo añadimos al body
-        document.body.appendChild(iconCont);
-      }
-    }
-    iconCont.innerHTML = "";
-    const key = mapCieloToIconKey(cieloDesc);
-    iconCont.appendChild(createIconElement(key, 34, cieloDesc || ""));
+    muestraTemperatura(temp);
+    muestraHumedad(hum);
+    muestraPresion(pres);
+    muestraActualizado(fecha);
 
-    document.getElementById("temp-actual").innerHTML =
-      (temp !== null ? (temp.toFixed ? temp.toFixed(1) : temp) : "--") + "<span>°C</span>";
-    document.getElementById("humedad-actual").textContent =
-      `Humedad: ${hum !== null ? hum : "--"} %`;
-    document.getElementById("presion-actual").textContent =
-      `Presión: ${pres !== null ? pres : "--"} hPa`;
-    document.getElementById("actualizado-actual").textContent =
-      `Actualizado: ${formateaFecha(fecha)}`;
+    // Actualiza chips y etiqueta de estación si existen
+    const chipEst = document.getElementById("chip-estacion");
+    if (chipEst) chipEst.textContent = `ID estación: ${ID_ESTACION}`;
+    const chipFecha = document.getElementById("chip-fecha");
+    if (chipFecha) chipFecha.textContent = new Date(reg.fint || reg.fenomeno || Date.now()).toLocaleDateString("es-ES");
 
-    document.getElementById("station-label").textContent =
-      `Estación ${ultimo.nombre || ""}`.trim();
-    document.getElementById("chip-estacion").textContent =
-      `ID estación: ${ultimo.idema || ID_ESTACION}`;
-    document.getElementById("chip-fecha").textContent =
-      formateaFecha(fecha);
+    // Actualiza estado
+    const statusEl = document.getElementById("status-actual");
+    if (statusEl) statusEl.textContent = "";
 
-    //statusEl.textContent = "Datos actualizados";
-    statusEl.textContent = " ";
   } catch (err) {
     console.error(err);
-    statusEl.textContent = "Error al cargar";
-    muestraError(
-      "error-actual",
-      "No se ha podido obtener el tiempo actual. Revisa la API Key, el ID de estación o inténtalo de nuevo más tarde."
-    );
+    muestraTemperatura(null);
+    muestraHumedad(null);
+    muestraPresion(null);
+    muestraActualizado(null);
+    muestraError("error-actual", "No se han podido cargar los datos de observación. Revisa la consola y la conexión/proxy.");
+    const statusEl = document.getElementById("status-actual");
+    if (statusEl) statusEl.textContent = "Error al cargar";
   }
 }
 
