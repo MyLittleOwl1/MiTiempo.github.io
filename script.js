@@ -574,7 +574,7 @@ document.getElementById("btn-refresh").addEventListener("click", async () => {
   btn.textContent = "Actualizando…";
   await inicializa();
   btn.disabled = false;
-  btn.textContent = "Actualizar";
+  btn.textContent = "↻";
 });
 
 // Carga y crea las opciones de Provincia y Estación desde el JSON local
