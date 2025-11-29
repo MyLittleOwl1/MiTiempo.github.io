@@ -11,6 +11,9 @@ const API_BASE = "https://opendata.aemet.es/opendata"; // BasePath de la doc
 // Cargamos fichero de estaciones una vez
 let ESTACIONES = []; // array completo de estaciones (cargado desde JSON)
 
+// Add a global cache for municipos once loaded
+let MUNICIPIOS = []; // array of {codigo, nombre, provincia, filaRaw}
+
 function validaApiKey() {
   if (!API_KEY || typeof API_KEY !== "string" || API_KEY.trim().length < 10 || API_KEY === "TU_API_KEY_AEMET_AQUI") {
     throw new Error("Falta la API Key de AEMET. Edita el código y rellena la constante API_KEY.");
@@ -386,38 +389,32 @@ function pintaPrevision(listaHoras, nombreMunicipio) {
   }
 }
 
-async function cargaPrevision() {
+async function cargaPrevision(codigoMunicipio = CODIGO_MUNICIPIO, nombreMunicipio) {
   const statusEl = document.getElementById("status-forecast");
-  const lastUpdateEl = document.getElementById("last-update");
   statusEl.textContent = "Cargando…";
   limpiaError("error-forecast");
-
   try {
     validaApiKey();
+    if (!codigoMunicipio) throw new Error("Código municipio no especificado.");
 
-    const ruta = `/api/prediccion/especifica/municipio/horaria/${CODIGO_MUNICIPIO}`;
+    // Construye ruta para predicción horaria del municipio (AEMET)
+    // Endpoint: /api/prediccion/especifica/municipio/horaria/{codMunicipio}
+    const ruta = `/api/prediccion/especifica/municipio/horaria/${codigoMunicipio}`;
     const data = await fetchAemet(ruta);
 
+    // 'data' puede ser un array con objetos 'prediccion' structure -> extract predict hourly
+    // dependemos de estructura existente (usa tu implementación ya presente)
     const listaHoras = extraeHorasPrediccion(data);
-    const nombreMunicipio =
-      (Array.isArray(data) && data[0] && (data[0].nombre || data[0].municipio)) || "";
+    pintaPrevision(listaHoras, nombreMunicipio || document.getElementById("city-label").textContent);
 
-    pintaPrevision(listaHoras, nombreMunicipio);
-
-    const elaborado = Array.isArray(data) && data[0] ? data[0].elaborado : null;
-    lastUpdateEl.textContent = elaborado
-      ? `Elaborado: ${formateaFecha(elaborado)}`
-      : "Elaborado: —";
-
-    //statusEl.textContent = "Datos actualizados";
+    // Actualiza label último update y estado
+    const now = new Date();
+    document.getElementById("last-update").textContent = now.toLocaleString("es-ES", { hour:"2-digit", minute:"2-digit" });
     statusEl.textContent = " ";
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
-    muestraError(
-      "error-forecast",
-      "No se ha podido obtener la previsión. Revisa la API Key, el código de municipio o inténtalo más tarde."
-    );
+    muestraError("error-forecast", "No se ha podido obtener la previsión. Revisa la API Key, el código del municipio o inténtalo más tarde.");
   }
 }
 
@@ -644,6 +641,102 @@ function refrescaDatos() {
   cargaPrevision();
   cargaHistoricoPresion();
 }
+
+// Carga la lista de municipios desde el CSV local (codigos-municipales_UTF8.csv)
+async function cargaMunicipiosDesdeCSV(path = "codigos-municipales_UTF8.csv") {
+  try {
+    const resp = await fetch(path, { cache: "no-cache" });
+    if (!resp.ok) {
+      console.warn("No se pudo cargar CSV municipios:", resp.status, resp.statusText);
+      return [];
+    }
+    const text = await resp.text();
+    // split lines, normalize CRLF
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return [];
+    const header = lines.shift();
+    const cols = header.split(";").map(h => h.trim().toLowerCase());
+
+    // busca indices utilies en el encabezado
+    const idxCodigo = cols.findIndex(c => /cod|codigo|codigoine|municipioine|ine/.test(c)) >= 0
+      ? cols.findIndex(c => /cod|codigo|codigoine|municipioine|ine/.test(c))
+      : 0;
+    const idxNombre = cols.findIndex(c => /municipio|nombre|nom/.test(c)) >= 0
+      ? cols.findIndex(c => /municipio|nombre|nom/.test(c))
+      : (cols.length > 1 ? 1 : 0);
+    const idxProvincia = cols.findIndex(c => /provincia|provinc/.test(c)) >= 0
+      ? cols.findIndex(c => /provincia|provinc/.test(c))
+      : -1;
+
+    const result = lines.map(line => {
+      const parts = line.split(";").map(p => p.trim());
+      const codigo = (parts[idxCodigo] || parts[0] || "").replace(/"/g, "");
+      const nombre = (parts[idxNombre] || parts[1] || "").replace(/"/g,"");
+      const provincia = idxProvincia >= 0 ? (parts[idxProvincia] || "").replace(/"/g,"") : "";
+      return { codigo, nombre, provincia, filaRaw: line };
+    }).filter(r => r.codigo && r.nombre);
+
+    // almacena globalmente
+    MUNICIPIOS = result;
+    return result;
+  } catch (err) {
+    console.warn("Error leyendo CSV municipios:", err);
+    return [];
+  }
+}
+
+function llenaSelectMunicipios() {
+  const sel = document.getElementById("municipio-select");
+  if (!sel) return;
+  sel.innerHTML = "";
+  // Opcional: agrega opción de placeholder
+  const ph = document.createElement("option");
+  ph.value = "";
+  ph.textContent = "Elige municipio...";
+  sel.appendChild(ph);
+
+  MUNICIPIOS.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m.codigo;
+    opt.textContent = m.provincia ? `${m.nombre} (${m.provincia})` : m.nombre;
+    if (m.codigo === CODIGO_MUNICIPIO) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// Botón/even listener: toma el código seleccionado y recarga la previsión
+document.addEventListener("DOMContentLoaded", () => {
+  // event listener para botón nuevo
+  const btnConsulta = document.getElementById("btn-consulta-municipio");
+  if (btnConsulta) {
+    btnConsulta.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const sel = document.getElementById("municipio-select");
+      if (!sel) return;
+      const codigo = sel.value;
+      if (!codigo) {
+        muestraError("error-forecast", "Selecciona un municipio antes de consultar.");
+        return;
+      }
+      CODIGO_MUNICIPIO = codigo;
+      // busca nombre para etiqueta
+      const m = MUNICIPIOS.find(x => x.codigo === codigo);
+      await cargaPrevision(codigo, m ? m.nombre : undefined);
+    });
+  }
+
+  // Quick-change: si cambias select, puedes consultar automáticamente
+  const selAuto = document.getElementById("municipio-select");
+  if (selAuto) {
+    selAuto.addEventListener("change", async () => {
+      const codigo = selAuto.value;
+      if (!codigo) return;
+      const m = MUNICIPIOS.find(x => x.codigo === codigo);
+      CODIGO_MUNICIPIO = codigo;
+      await cargaPrevision(codigo, m ? m.nombre : undefined);
+    });
+  }
+});
 
 // Inicializa la aplicación
 inicializa();
