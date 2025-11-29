@@ -539,6 +539,20 @@ async function cargaHistoricoPresion() {
 async function inicializa() {
   try {
     await cargaListaEstaciones();
+
+    // Carga y llena municipios (CSV) antes de pintar previsiones
+    try {
+      await cargaMunicipiosDesdeCSV();
+      llenaSelectMunicipios();
+      console.log("Municipios cargados:", MUNICIPIOS.length);
+      if (MUNICIPIOS.length === 0) {
+        muestraError("error-forecast", "No se han cargado municipios (falta CSV o ruta incorrecta).");
+      }
+    } catch (e) {
+      console.warn("Error cargando municipios en inicializa:", e);
+      // no bloqueamos inicialización completa
+    }
+
     const btnRef = document.getElementById("btn-refresca");
     if (btnRef && !btnRef.dataset.listenerAttached) {
       btnRef.addEventListener("click", refrescaDatos);
@@ -705,7 +719,7 @@ function llenaSelectMunicipios() {
 }
 
 // Botón/even listener: toma el código seleccionado y recarga la previsión
-document.addEventListener("DOMContentLoaded", () => {
+(function attachMunicipalListeners() {
   // event listener para botón nuevo
   const btnConsulta = document.getElementById("btn-consulta-municipio");
   if (btnConsulta) {
@@ -736,7 +750,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await cargaPrevision(codigo, m ? m.nombre : undefined);
     });
   }
-});
+})();
 
 // Inicializa la aplicación
 inicializa();
