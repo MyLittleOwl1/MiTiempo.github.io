@@ -289,3 +289,19 @@
         font-size: 0.9rem;
       }
     }
+
+    /* Tamaño más pequeño para Humedad y Presión actuales */
+    #humedad-actual,
+    #presion-actual {
+      font-size: 0.82rem;      /* texto más pequeño */
+      color: var(--color-text-soft);
+      line-height: 1.1;
+    }
+
+    /* Ajuste para móvil: ligeramente más grande para legibilidad */
+    @media (max-width: 640px) {
+      #humedad-actual,
+      #presion-actual {
+        font-size: 0.82rem;
+      }
+    }
