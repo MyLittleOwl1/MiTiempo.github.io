@@ -14,7 +14,7 @@
         <span class="badge">By Gaby</span>
       </div>
       <p class="subtitle">
-        Datos oficiales de AEMET: observación  y predicción horaria en Córdoba-Aeropuerto
+        Datos oficiales de AEMET: observación y predicción horaria en Córdoba-Aeropuerto
       </p>
     </header>
 
@@ -22,14 +22,13 @@
     <section class="card" id="card-actual">
       <div class="card-header">
         <div class="card-title">
+          <!-- Título opcional -->
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <div class="status-text" id="status-actual">Esperando datos…</div>
-          <!-- Botón removido del header para colocarlo junto a los valores de humedad/presión -->
         </div>
       </div>
 
-      <!-- SELECT PROVINCIA / ESTACIÓN (responsive para móvil) -->
       <div class="controls" id="controls-estacion" aria-label="Selector de provincia y estación">
         <label class="control-label" for="provincia-select">
           Provincia
@@ -42,13 +41,19 @@
       </div>
 
       <div class="current-main">
-        <div class="current-temp" id="temp-actual">
-          --<span>°C</span>
+        <!-- CORRECCIÓN: Agrupamos Icono + Temperatura en un wrapper para alinearlos -->
+        <div style="display:flex; align-items:center; gap:12px;">
+            <!-- Nuevo contenedor para el icono principal -->
+            <div id="icono-actual" style="display:flex; color:var(--color-accent);"></div>
+            
+            <div class="current-temp" id="temp-actual">
+              --<span>°C</span>
+            </div>
         </div>
+
         <div class="current-extra">
           <span id="humedad-actual">Humedad: -- %</span>
           <span id="presion-actual">Presión: -- hPa</span>
-          <!-- Botón refrescar trasladado aquí -->
           <button id="btn-refresca" class="btn-refresh" title="Refrescar datos" aria-label="Refrescar datos" style="margin-left:6px;">↻</button>
           <span id="actualizado-actual">Actualizado: --</span>
         </div>
@@ -68,26 +73,20 @@
         <div class="card-title">
           <span>Previsión 24 h</span>
           <span id="city-label">Nombre del Municipio</span>
-          <!-- etiqueta de municipio eliminada -->
         </div>
         <div class="status-text" id="status-forecast">Esperando datos…</div>
       </div>
 
-      <div class="forecast-list" id="forecast-list">
-        <!-- Tarjetas horarias generadas por JS -->
-      </div>
+      <div class="forecast-list" id="forecast-list"></div>
 
       <p class="error hidden" id="error-forecast"></p>
 
       <div class="toolbar">
         <span id="last-update">—</span>
-
-        <!-- selector de municipio y botón (sin etiqueta visible) -->
         <select id="municipio-select" class="mobile-select" aria-label="Municipio" style="margin-left:8px;"></select>
         <button id="btn-consulta-municipio" class="btn-refresh" title="Consultar municipio">
         <span>👍</span> 
         </button>
-
         <button id="btn-refresh" class="btn-refresh">
         <span>↻</span>
         </button>
@@ -105,7 +104,6 @@
         <div class="status-text" id="status-presion">Esperando datos…</div>
       </div>
 
-      <!-- tabla con título único en la primera fila -->
       <div style="overflow-x:auto; margin-top:4px;">
         <table style="width:100%; border-collapse:collapse; font-size:0.7rem;">
           <thead>
@@ -115,26 +113,15 @@
               </th>
             </tr>
             <tr style="color:#9ca3af;">
-              <th style="text-align:left; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Hora
-              </th>
-              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Presión (hPa)
-              </th>
-              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Temperatura (°C)
-              </th>
-              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">
-                Humedad (%)
-              </th>
+              <th style="text-align:left; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Hora</th>
+              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Presión (hPa)</th>
+              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Temp (°C)</th>
+              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Hum (%)</th>
             </tr>
           </thead>
-          <tbody id="tabla-presion-cuerpo">
-            <!-- Filas generadas por JS -->
-          </tbody>
+          <tbody id="tabla-presion-cuerpo"></tbody>
         </table>
       </div>
-
       <p class="error hidden" id="error-presion"></p>
     </section>
 
@@ -143,6 +130,5 @@
     </footer>
   </div>
   <script src="script.js"></script>
-
 </body>
 </html>
