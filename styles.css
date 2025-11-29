@@ -123,7 +123,7 @@
     }
 
     .current-extra {
-      font-size: 0.75rem;
+      font-size: 1rem;
       color: var(--color-text-soft);
       display: flex;
       flex-direction: column;
@@ -198,7 +198,7 @@
       background: var(--color-accent, #38bdf8);
       color: var(--color-bg); /* contraste: texto oscuro sobre botón claro */
       border: none;
-      font-size: 0.95rem;
+      font-size: 0.75rem;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -240,7 +240,7 @@
     }
 
     .control-label {
-      font-size: 0.95rem;
+      font-size: 0.88rem; /* ligeramente más pequeño que antes */
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -249,42 +249,38 @@
 
     .mobile-select {
       width: 100%;
-      min-width: 100px;
-      padding: 8px 10px;
-      font-size: 0.9rem;
-      border-radius: 8px;
+      min-width: 80px;           /* más estrecho */
+      padding: 6px 8px;         /* menos relleno */
+      font-size: 0.82rem;       /* texto más pequeño */
+      border-radius: 6px;       /* radio algo menor */
       border: 1px solid rgba(15, 23, 42, 0.12);
       background: var(--bg-input, #011850);
       color: var(--color-text, #e5e7eb);
       box-sizing: border-box;
       -webkit-appearance: none;
       appearance: none;
+      min-height: 34px;         /* alto más compacto */
     }
 
-    @media (min-width: 640px) {
-      body {
-        padding: 16px;
-      }
-      .app-title {
-        font-size: 1.7rem;
-      }
+    /* Aplica el mismo estilo compacto solo para los 3 select principales */
+    #provincia-select,
+    #estacion-select,
+    #municipio-select {
+      padding: 6px 8px;
+      font-size: 0.82rem;
+      min-width: 80px;
+      min-height: 34px;
+      border-radius: 6px;
     }
 
-    /* layout en pantallas pequeñas: apilar verticalmente */
+    /* Mantener legible en móviles: vuelve a tamaño un poco mayor */
     @media (max-width: 640px) {
-      .controls {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .control-label {
-        width: 100%;
-      }
-      .btn-refresh {
-        width: 100%;
-        margin-top: 6px;
+      .mobile-select {
+        font-size: 0.9rem;
+        padding: 8px 10px;
         min-height: 40px;
-        font-size: 1rem;
       }
+      .control-label { font-size: 0.95rem; width: 100%; }
     }
 
     /* Opcional: mantener estilos en pantallas grandes */
