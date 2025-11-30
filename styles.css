@@ -288,7 +288,7 @@ footer {
   border-radius: 6px;
 }
 
-/* Mantener legible en móviles: vuelve a tamaño un poco mayor */
+/* Mantener legible en móviles: vuelve a tamaño un poco mayor 
 @media (max-width: 640px) {
   .mobile-select {
     font-size: 0.9rem;
@@ -301,7 +301,7 @@ footer {
     width: 100%;
   }
 }
-
+*/
 
 /* Mantener legible en móviles */
 @media (max-width: 640px) {
