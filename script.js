@@ -533,7 +533,18 @@
           tbody.appendChild(tr);
         });
 
-        document.getElementById("presion-label").textContent = "CÓRDOBA AEROPUERTO, ESPAÑA";
+        //document.getElementById("presion-label").textContent = "CÓRDOBA AEROPUERTO, ESPAÑA";
+        // BUSCA LA ESTACIÓN ACTUAL EN EL ARRAY 'ESTACIONES'
+        const estActual = ESTACIONES.find(e => (e["Código_AEMET"] || e.Codigo_AEMET) == ID_ESTACION);
+
+        // SI LA ENCUENTRA USA SU NOMBRE, SI NO, USA EL ID
+        const nombreEstacion = estActual ? estActual.Nombre : ID_ESTACION;
+
+        // ACTUALIZA LA ETIQUETA CORRECTAMENTE
+        document.getElementById("presion-label").textContent = nombreEstacion;
+
+        
+        
         statusEl.textContent = "";
       } catch (err) {
         console.error(err);
