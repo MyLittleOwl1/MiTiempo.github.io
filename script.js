@@ -436,125 +436,138 @@
     // ==========================
 
     async function cargaHistoricoPresion() {
-      // Ahora: presión por horas del día actual (no 7 días)
-      const statusEl = document.getElementById("status-presion");
-      statusEl.textContent = "Cargando…";
-      limpiaError("error-presion");
+  const statusEl = document.getElementById("status-presion");
+  // Limpiamos tabla y errores previos
+  const tbody = document.getElementById("tabla-presion-cuerpo");
+  if (tbody) tbody.innerHTML = ""; 
+  limpiaError("error-presion");
+  
+  statusEl.textContent = "Cargando datos...";
 
-      try {
-        validaApiKey();
+  // --- NUEVO: ACTUALIZACIÓN DE ETIQUETA (Provincia - Estación) ---
+  // Lo hacemos antes de la petición para que el usuario vea qué está cargando
+  const estActual = ESTACIONES.find(e => (e["Código_AEMET"] || e.Codigo_AEMET) == ID_ESTACION);
+  if (estActual) {
+    const provincia = estActual.Provincia || "Provincia desc.";
+    const nombre = estActual.Nombre || "Estación desc.";
+    document.getElementById("presion-label").textContent = `${provincia} - ${nombre}`;
+  } else {
+    document.getElementById("presion-label").textContent = `Estación ${ID_ESTACION}`;
+  }
+  // ---------------------------------------------------------------
 
-        // Usamos de nuevo la observación convencional (últimas 24 h de la estación)
-        const ruta = `/api/observacion/convencional/datos/estacion/${ID_ESTACION}`;
-        const data = await fetchAemet(ruta);
+  try {
+    validaApiKey();
 
-        if (!Array.isArray(data) || data.length === 0) {
-          throw new Error("Sin datos de observación para la estación indicada.");
-        }
-
-        const hoy = new Date();
-        const y = hoy.getUTCFullYear();
-        const m = hoy.getUTCMonth();
-        const d = hoy.getUTCDate();
-
-        // Filtra solo los registros del día actual (UTC)
-        const deHoy = data.filter(reg => {
-          const fTexto = reg.fint || reg.fenomeno;
-          if (!fTexto) return false;
-          const f = new Date(fTexto);
-          if (isNaN(f.getTime())) return false;
-          return (
-            f.getUTCFullYear() === y &&
-            f.getUTCMonth() === m &&
-            f.getUTCDate() === d
-          );
-        });
-
-        if (deHoy.length === 0) {
-          throw new Error("Sin datos de hoy para la estación.");
-        }
-
-        // Ordena por hora ascendente
-        deHoy.sort((a, b) => {
-          const fa = new Date(a.fint || a.fenomeno);
-          const fb = new Date(b.fint || b.fenomeno);
-          return fa - fb;
-        });
-
-        // Actualiza la fecha en la cabecera (formato dd/mm/aaaa) usando la fecha del primer registro
-        const elFechaCab = document.getElementById("presion-fecha");
-        if (elFechaCab && deHoy[0]) {
-          const fechaRegistro = new Date(deHoy[0].fint || deHoy[0].fenomeno || Date.now());
-          elFechaCab.textContent = fechaRegistro.toLocaleDateString("es-ES", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric"
-          });
-        }
-
-        const tbody = document.getElementById("tabla-presion-cuerpo");
-        tbody.innerHTML = "";
-
-        deHoy.forEach(reg => {
-          const f = new Date(reg.fint || reg.fenomeno);
-          const hora = f.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-          const pres = reg.pres ?? reg.qnh ?? null;
-          const temp = reg.ta ?? reg.tamin ?? reg.tamax ?? null;
-          const hum = reg.hr ?? reg.humedad ?? reg.h ?? null;
-
-          const tr = document.createElement("tr");
-
-          const tdHora = document.createElement("td");
-          tdHora.style.padding = "4px 2px";
-          tdHora.textContent = hora;
-
-          const tdPres = document.createElement("td");
-          tdPres.style.padding = "4px 2px";
-          tdPres.style.textAlign = "right";
-          tdPres.textContent =
-            pres != null && isFinite(Number(pres)) ? Number(pres).toFixed(1) : "—";
-
-          const tdTemp = document.createElement("td");
-          tdTemp.style.padding = "4px 2px";
-          tdTemp.style.textAlign = "right";
-          tdTemp.textContent =
-            temp != null && isFinite(Number(temp)) ? Number(temp).toFixed(1) : "—";
-
-          const tdHum = document.createElement("td");
-          tdHum.style.padding = "4px 2px";
-          tdHum.style.textAlign = "right";
-          tdHum.textContent =
-            hum != null && isFinite(Number(hum)) ? Number(hum).toFixed(0) : "—";
-
-          tr.appendChild(tdHora);
-          tr.appendChild(tdPres);
-          tr.appendChild(tdTemp);
-          tr.appendChild(tdHum);
-          tbody.appendChild(tr);
-        });
-
-        //document.getElementById("presion-label").textContent = "CÓRDOBA AEROPUERTO, ESPAÑA";
-        // BUSCA LA ESTACIÓN ACTUAL EN EL ARRAY 'ESTACIONES'
-        const estActual = ESTACIONES.find(e => (e["Código_AEMET"] || e.Codigo_AEMET) == ID_ESTACION);
-
-        // SI LA ENCUENTRA USA SU NOMBRE, SI NO, USA EL ID
-        const nombreEstacion = estActual ? estActual.Nombre : ID_ESTACION;
-
-        // ACTUALIZA LA ETIQUETA CORRECTAMENTE
-        document.getElementById("presion-label").textContent = nombreEstacion;
-
-        
-        
-        statusEl.textContent = "";
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = "Error al cargar";
-        muestraError(
-          "error-presion",
-          "No se ha podido obtener la presión horaria de hoy. Revisa la API Key, el ID de estación o inténtalo más tarde."
-        );
-      }
+    const ruta = `/api/observacion/convencional/datos/estacion/${ID_ESTACION}`;
+    
+    // Intentamos la petición
+    let data;
+    try {
+      data = await fetchAemet(ruta);
+    } catch (e) {
+       // Si falla el fetch específico (404 o similar), asumimos que no hay datos
+       statusEl.textContent = "No existen datos en la citada estación";
+       return; // Salimos suavemente
     }
+
+    // --- NUEVO: CONTROL DE "SIN DATOS" ---
+    // Si devuelve un array vacío o inválido, mostramos el mensaje que pediste
+    if (!Array.isArray(data) || data.length === 0) {
+      statusEl.textContent = "No existen datos en la citada estación";
+      return; // Salimos sin lanzar error rojo
+    }
+
+    const hoy = new Date();
+    const y = hoy.getUTCFullYear();
+    const m = hoy.getUTCMonth();
+    const d = hoy.getUTCDate();
+
+    // Filtra solo los registros del día actual (UTC)
+    const deHoy = data.filter(reg => {
+      const fTexto = reg.fint || reg.fenomeno;
+      if (!fTexto) return false;
+      const f = new Date(fTexto);
+      if (isNaN(f.getTime())) return false;
+      return (
+        f.getUTCFullYear() === y &&
+        f.getUTCMonth() === m &&
+        f.getUTCDate() === d
+      );
+    });
+
+    // Si hay datos históricos pero ninguno de hoy:
+    if (deHoy.length === 0) {
+      statusEl.textContent = "No existen datos recientes (hoy) en la citada estación";
+      return;
+    }
+
+    // Ordena por hora ascendente
+    deHoy.sort((a, b) => {
+      const fa = new Date(a.fint || a.fenomeno);
+      const fb = new Date(b.fint || b.fenomeno);
+      return fa - fb;
+    });
+
+    // Actualiza fecha cabecera
+    const elFechaCab = document.getElementById("presion-fecha");
+    if (elFechaCab && deHoy[0]) {
+      const fechaRegistro = new Date(deHoy[0].fint || deHoy[0].fenomeno || Date.now());
+      elFechaCab.textContent = fechaRegistro.toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      });
+    }
+
+    // Rellenar tabla
+    deHoy.forEach(reg => {
+      const f = new Date(reg.fint || reg.fenomeno);
+      const hora = f.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+      const pres = reg.pres ?? reg.qnh ?? null;
+      const temp = reg.ta ?? reg.tamin ?? reg.tamax ?? null;
+      const hum = reg.hr ?? reg.humedad ?? reg.h ?? null;
+
+      const tr = document.createElement("tr");
+
+      const tdHora = document.createElement("td");
+      tdHora.style.padding = "4px 2px";
+      tdHora.textContent = hora;
+
+      const tdPres = document.createElement("td");
+      tdPres.style.padding = "4px 2px";
+      tdPres.style.textAlign = "right";
+      tdPres.textContent = pres != null && isFinite(Number(pres)) ? Number(pres).toFixed(1) : "—";
+
+      const tdTemp = document.createElement("td");
+      tdTemp.style.padding = "4px 2px";
+      tdTemp.style.textAlign = "right";
+      tdTemp.textContent = temp != null && isFinite(Number(temp)) ? Number(temp).toFixed(1) : "—";
+
+      const tdHum = document.createElement("td");
+      tdHum.style.padding = "4px 2px";
+      tdHum.style.textAlign = "right";
+      tdHum.textContent = hum != null && isFinite(Number(hum)) ? Number(hum).toFixed(0) : "—";
+
+      tr.appendChild(tdHora);
+      tr.appendChild(tdPres);
+      tr.appendChild(tdTemp);
+      tr.appendChild(tdHum);
+      tbody.appendChild(tr);
+    });
+
+    // Todo correcto
+    statusEl.textContent = "";
+    
+    // Nota: Ya no actualizamos el label aquí abajo porque lo hicimos al principio de la función.
+
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "Error al procesar datos";
+    muestraError("error-presion", err.message);
+  }
+}
+
 
     // ==========================
     // INICIALIZACIÓN
