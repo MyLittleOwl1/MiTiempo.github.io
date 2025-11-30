@@ -111,7 +111,7 @@
     function muestraActualizado(texto) {
       const el = document.getElementById("actualizado-actual");
       if (!el) return;
-      el.textContent = `(Actualizado: ${texto || '--'} H)`;
+      el.textContent = `Actualizado: ${texto || '--'} `;
     }
 
     // Garantiza que existan los elementos current (si algún innerHTML los borró)
