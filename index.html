@@ -1,6 +1,8 @@
+[file name]: index.html
+[file content begin]
 <!doctype html>
 <html lang="es">
-<!--Versión 1.4-->
+<!--Versión 1.6 - Añadida previsión 7 días-->
 
 <head>
   <meta charset="utf-8" />
@@ -98,6 +100,21 @@
       </div>
     </section>
 
+    <!-- NUEVA SECCIÓN: PREVISIÓN 7 DÍAS -->
+    <section class="card" id="card-7dias">
+      <div class="card-header">
+        <div class="card-title">
+          <span>Previsión 7 días</span>
+          <span id="city-label-7d" class="pill">Cargando...</span>
+        </div>
+        <div class="status-text" id="status-7dias">Esperando datos…</div>
+      </div>
+
+      <div class="forecast-7d-container" id="forecast-7d-container"></div>
+
+      <p class="error hidden" id="error-7dias"></p>
+    </section>
+
     <!-- HISTÓRICO PRESIÓN 7 DÍAS -->
     <section class="card" id="card-presion">
       <div class="card-header">
@@ -140,3 +157,4 @@
 </body>
 
 </html>
+[file content end]

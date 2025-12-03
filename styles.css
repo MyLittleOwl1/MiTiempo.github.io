@@ -153,6 +153,7 @@ header {
   border: 1px solid rgba(55, 65, 81, 0.9);
 }
 
+/* Estilos para previsión 24h */
 .forecast-list {
   display: flex;
   overflow-x: auto;
@@ -188,6 +189,63 @@ header {
 .forecast-desc {
   font-size: 0.65rem;
   color: var(--color-text-soft);
+}
+
+/* Estilos para previsión 7 días */
+.forecast-7d-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.forecast-day {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 8px;
+  border: 1px solid rgba(55, 65, 81, 0.5);
+}
+
+.forecast-day-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.forecast-day-date {
+  font-weight: 600;
+  min-width: 70px;
+}
+
+.forecast-day-icon {
+  display: flex;
+  align-items: center;
+}
+
+.forecast-day-desc {
+  font-size: 0.8rem;
+  color: var(--color-text-soft);
+  flex: 1;
+}
+
+.forecast-day-temps {
+  text-align: right;
+  min-width: 100px;
+}
+
+.forecast-day-max {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.forecast-day-min {
+  font-size: 0.8rem;
+  color: var(--color-text-soft);
+  margin-left: 4px;
 }
 
 .toolbar {
@@ -288,24 +346,8 @@ footer {
   border-radius: 6px;
 }
 
-/* Mantener legible en móviles: vuelve a tamaño un poco mayor 
-@media (max-width: 640px) {
-  .mobile-select {
-    font-size: 0.9rem;
-    padding: 8px 10px;
-    min-height: 40px;
-  }
-
-  .control-label {
-    font-size: 0.95rem;
-    width: 100%;
-  }
-}
-*/
-
 /* Mantener legible en móviles */
 @media (max-width: 640px) {
-
   .mobile-select,
   #provincia-select,
   #estacion-select,
@@ -336,9 +378,23 @@ footer {
 
   /* Ajuste para móvil: ligeramente más grande para legibilidad */
   @media (max-width: 640px) {
-
     #humedad-actual,
     #presion-actual {
       font-size: 0.82rem;
+    }
+    
+    .forecast-day {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    
+    .forecast-day-info {
+      width: 100%;
+    }
+    
+    .forecast-day-temps {
+      width: 100%;
+      text-align: left;
     }
   }

@@ -1,4 +1,3 @@
-
 // ==========================
 // CONFIGURACIÓN BÁSICA
 // ==========================
@@ -276,6 +275,16 @@ function injectIconStyles() {
     .forecast-item { display:flex; align-items:center; gap:8px; }
     .forecast-hour { width:48px; font-weight:600; }
     .forecast-desc { min-width:80px; flex:1; }
+    /* Estilos para previsión 7 días */
+    .forecast-7d-container { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .forecast-day { display: flex; align-items: center; justify-content: space-between; padding: 8px; background: rgba(15, 23, 42, 0.7); border-radius: 8px; border: 1px solid rgba(55, 65, 81, 0.5); }
+    .forecast-day-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .forecast-day-date { font-weight: 600; min-width: 70px; }
+    .forecast-day-icon { display: flex; align-items: center; }
+    .forecast-day-desc { font-size: 0.8rem; color: var(--color-text-soft); flex: 1; }
+    .forecast-day-temps { text-align: right; min-width: 100px; }
+    .forecast-day-max { font-weight: 600; font-size: 1rem; }
+    .forecast-day-min { font-size: 0.8rem; color: var(--color-text-soft); margin-left: 4px; }
   `;
   const style = document.createElement("style");
   style.id = "weather-icon-styles";
@@ -299,7 +308,6 @@ function mapCieloToIconKey(desc) {
 
 function createIconElement(key, size = 24, title = "") {
   injectIconStyles();
-  console.log("createIconElement", key, size, title); // debug
   const wrapper = document.createElement("span");
   wrapper.className = "weather-icon";
   wrapper.setAttribute("aria-hidden", "false");
@@ -328,26 +336,6 @@ function createIconElement(key, size = 24, title = "") {
     }
   }
   return wrapper;
-}
-
-function getSkyDescriptionFromObservation(obs) {
-  // obs may have estadoCielo as array/object/string; try to extract a human message
-  if (!obs) return null;
-  let desc = null;
-  if (Array.isArray(obs.estadoCielo) && obs.estadoCielo.length > 0) {
-    // some objetos: {periodo:..., descripcion:..., value:...}
-    const el = obs.estadoCielo[0];
-    desc = el.descripcion || el.value || el;
-  } else if (typeof obs.estadoCielo === "object" && obs.estadoCielo !== null) {
-    desc = obs.estadoCielo.descripcion || obs.estadoCielo.value || null;
-  } else if (typeof obs.estadoCielo === "string") {
-    desc = obs.estadoCielo;
-  } else if (obs.descripcion) {
-    desc = obs.descripcion;
-  } else if (obs.fenomeno) {
-    desc = obs.fenomeno;
-  }
-  return desc || null;
 }
 
 function pintaPrevision(listaHoras, nombreMunicipio) {
@@ -423,11 +411,238 @@ async function cargaPrevision(codigoMunicipio = CODIGO_MUNICIPIO, nombreMunicipi
 
     const now = new Date();
     document.getElementById("last-update").textContent = now.toLocaleString("es-ES", { hour: "2-digit", minute: "2-digit" });
-    statusEl.textContent = " ";
+    statusEl.textContent = "";
+    
+    // Cargar también previsión de 7 días - pero NO desde aquí
+    // Esto se hará desde refrescaDatos() o desde attachMunicipalListeners
+    
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Error al cargar";
     muestraError("error-forecast", "No se ha podido obtener la previsión. Revisa la API Key, el código del municipio o inténtalo más tarde.");
+  }
+}
+
+// ==========================
+// NUEVA FUNCIÓN: PREVISIÓN 7 DÍAS
+// ==========================
+
+async function cargaPrevision7Dias(codigoMunicipio = CODIGO_MUNICIPIO, nombreMunicipio) {
+  const statusEl = document.getElementById("status-7dias");
+  const cont = document.getElementById("forecast-7d-container");
+  
+  statusEl.textContent = "Cargando…";
+  limpiaError("error-7dias");
+  cont.innerHTML = "";
+
+  try {
+    validaApiKey();
+    if (!codigoMunicipio) throw new Error("Código municipio no especificado.");
+
+    // Usamos el endpoint de predicción diaria
+    const ruta = `/api/prediccion/especifica/municipio/diaria/${codigoMunicipio}`;
+    const data = await fetchAemet(ruta);
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("No hay datos de previsión para 7 días");
+    }
+
+    const prediccion = data[0];
+    if (!prediccion.prediccion || !prediccion.prediccion.dia) {
+      throw new Error("Formato de datos incorrecto para previsión 7 días");
+    }
+
+    const dias = prediccion.prediccion.dia.slice(0, 7); // Tomamos máximo 7 días
+
+    // Actualizar etiqueta de ciudad
+    if (nombreMunicipio) {
+      document.getElementById("city-label-7d").textContent = nombreMunicipio;
+    }
+
+    dias.forEach(dia => {
+      const fecha = new Date(dia.fecha);
+      const nombreDia = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
+      const diaMes = fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+      
+      // Obtener temperaturas máxima y mínima
+      const tempMax = dia.temperatura?.maxima || dia.tMax || "--";
+      const tempMin = dia.temperatura?.minima || dia.tMin || "--";
+      
+      // Obtener descripción del cielo (tomamos el estado de cielo del periodo 12-18 como representativo)
+      let estadoCielo = "";
+      if (Array.isArray(dia.estadoCielo)) {
+        const periodoRep = dia.estadoCielo.find(e => e.periodo === "12-18") || 
+                          dia.estadoCielo.find(e => e.periodo === "00-24") ||
+                          dia.estadoCielo[0];
+        estadoCielo = periodoRep?.descripcion || "";
+      }
+      
+      // Obtener probabilidad de precipitación
+      let probPrecip = "";
+      if (Array.isArray(dia.probPrecipitacion)) {
+        const periodoRep = dia.probPrecipitacion.find(e => e.periodo === "12-18") || 
+                          dia.probPrecipitacion.find(e => e.periodo === "00-24") ||
+                          dia.probPrecipitacion[0];
+        probPrecip = periodoRep?.value ? `${periodoRep.value}%` : "";
+      }
+
+      // Mapear descripción a icono
+      const iconKey = mapCieloToIconKey(estadoCielo);
+
+      // Crear elemento del día
+      const dayEl = document.createElement("div");
+      dayEl.className = "forecast-day";
+      
+      dayEl.innerHTML = `
+        <div class="forecast-day-info">
+          <div class="forecast-day-date">
+            <div>${nombreDia}</div>
+            <div style="font-size:0.8rem;color:#9ca3af;">${diaMes}</div>
+          </div>
+          <div class="forecast-day-icon">
+            <!-- Icono se insertará aquí -->
+          </div>
+          <div class="forecast-day-desc">
+            <div>${estadoCielo || "—"}</div>
+            ${probPrecip ? `<div style="font-size:0.7rem;color:#38bdf8;">${probPrecip} prec.</div>` : ""}
+          </div>
+        </div>
+        <div class="forecast-day-temps">
+          <span class="forecast-day-max">${tempMax}°</span>
+          <span class="forecast-day-min">${tempMin}°</span>
+        </div>
+      `;
+      
+      // Insertar icono
+      const iconContainer = dayEl.querySelector(".forecast-day-icon");
+      const iconEl = createIconElement(iconKey, 32, estadoCielo);
+      iconContainer.appendChild(iconEl);
+      
+      cont.appendChild(dayEl);
+    });
+
+    // CORRECCIÓN: Limpiar el estado cuando tiene éxito
+    statusEl.textContent = "";
+
+  } catch (err) {
+    console.error("Error cargando previsión 7 días:", err);
+    statusEl.textContent = "Error al cargar";
+    muestraError("error-7dias", "No se ha podido obtener la previsión para 7 días.");
+    cont.innerHTML = `<div style="text-align:center; padding:20px; color:#9ca3af; font-size:0.8rem;">
+      <p>No se pudieron cargar los datos de previsión para 7 días.</p>
+      <p>${err.message}</p>
+    </div>`;
+  }
+}
+
+// ==========================
+// NUEVA FUNCIÓN: PREVISIÓN 7 DÍAS
+// ==========================
+
+async function cargaPrevision7Dias(codigoMunicipio = CODIGO_MUNICIPIO, nombreMunicipio) {
+  const statusEl = document.getElementById("status-7dias");
+  const cont = document.getElementById("forecast-7d-container");
+  
+  statusEl.textContent = "Cargando…";
+  limpiaError("error-7dias");
+  cont.innerHTML = "";
+
+  try {
+    validaApiKey();
+    if (!codigoMunicipio) throw new Error("Código municipio no especificado.");
+
+    // Usamos el endpoint de predicción diaria
+    const ruta = `/api/prediccion/especifica/municipio/diaria/${codigoMunicipio}`;
+    const data = await fetchAemet(ruta);
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("No hay datos de previsión para 7 días");
+    }
+
+    const prediccion = data[0];
+    if (!prediccion.prediccion || !prediccion.prediccion.dia) {
+      throw new Error("Formato de datos incorrecto para previsión 7 días");
+    }
+
+    const dias = prediccion.prediccion.dia.slice(0, 7); // Tomamos máximo 7 días
+
+    // Actualizar etiqueta de ciudad
+    if (nombreMunicipio) {
+      document.getElementById("city-label-7d").textContent = nombreMunicipio;
+    }
+
+    dias.forEach(dia => {
+      const fecha = new Date(dia.fecha);
+      const nombreDia = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
+      const diaMes = fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+      
+      // Obtener temperaturas máxima y mínima
+      const tempMax = dia.temperatura?.maxima || dia.tMax || "--";
+      const tempMin = dia.temperatura?.minima || dia.tMin || "--";
+      
+      // Obtener descripción del cielo (tomamos el estado de cielo del periodo 12-18 como representativo)
+      let estadoCielo = "";
+      if (Array.isArray(dia.estadoCielo)) {
+        const periodoRep = dia.estadoCielo.find(e => e.periodo === "12-18") || 
+                          dia.estadoCielo.find(e => e.periodo === "00-24") ||
+                          dia.estadoCielo[0];
+        estadoCielo = periodoRep?.descripcion || "";
+      }
+      
+      // Obtener probabilidad de precipitación
+      let probPrecip = "";
+      if (Array.isArray(dia.probPrecipitacion)) {
+        const periodoRep = dia.probPrecipitacion.find(e => e.periodo === "12-18") || 
+                          dia.probPrecipitacion.find(e => e.periodo === "00-24") ||
+                          dia.probPrecipitacion[0];
+        probPrecip = periodoRep?.value ? `${periodoRep.value}%` : "";
+      }
+
+      // Mapear descripción a icono
+      const iconKey = mapCieloToIconKey(estadoCielo);
+
+      // Crear elemento del día
+      const dayEl = document.createElement("div");
+      dayEl.className = "forecast-day";
+      
+      dayEl.innerHTML = `
+        <div class="forecast-day-info">
+          <div class="forecast-day-date">
+            <div>${nombreDia}</div>
+            <div style="font-size:0.8rem;color:#9ca3af;">${diaMes}</div>
+          </div>
+          <div class="forecast-day-icon">
+            <!-- Icono se insertará aquí -->
+          </div>
+          <div class="forecast-day-desc">
+            <div>${estadoCielo || "—"}</div>
+            ${probPrecip ? `<div style="font-size:0.7rem;color:#38bdf8;">${probPrecip} prec.</div>` : ""}
+          </div>
+        </div>
+        <div class="forecast-day-temps">
+          <span class="forecast-day-max">${tempMax}°</span>
+          <span class="forecast-day-min">${tempMin}°</span>
+        </div>
+      `;
+      
+      // Insertar icono
+      const iconContainer = dayEl.querySelector(".forecast-day-icon");
+      const iconEl = createIconElement(iconKey, 32, estadoCielo);
+      iconContainer.appendChild(iconEl);
+      
+      cont.appendChild(dayEl);
+    });
+
+    statusEl.textContent = "";
+
+  } catch (err) {
+    console.error("Error cargando previsión 7 días:", err);
+    statusEl.textContent = "Error al cargar";
+    muestraError("error-7dias", "No se ha podido obtener la previsión para 7 días.");
+    cont.innerHTML = `<div style="text-align:center; padding:20px; color:#9ca3af; font-size:0.8rem;">
+      <p>No se pudieron cargar los datos de previsión para 7 días.</p>
+      <p>${err.message}</p>
+    </div>`;
   }
 }
 
@@ -595,9 +810,12 @@ async function inicializa() {
       btnRef.addEventListener("click", refrescaDatos);
       btnRef.dataset.listenerAttached = "1";
     }
+    
+    // CORRECCIÓN: Cargar todas las secciones, incluyendo previsión 7 días
     await Promise.all([
       cargaTiempoActual(),
       cargaPrevision(),
+      cargaPrevision7Dias(),
       cargaHistoricoPresion()
     ]);
   } catch (e) {
@@ -609,7 +827,8 @@ document.getElementById("btn-refresh").addEventListener("click", async () => {
   const btn = document.getElementById("btn-refresh");
   btn.disabled = true;
   btn.textContent = "Actualizando…";
-  await inicializa();
+  // CORRECCIÓN: Llamar a refrescaDatos que ahora incluye previsión 7 días
+  await refrescaDatos();
   btn.disabled = false;
   btn.textContent = "↻";
 });
@@ -687,7 +906,7 @@ function llenaSelectEstaciones(provincia) {
 
 function actualizaEtiquetaEstacion() {
   const el = document.getElementById("station-label");
-  const est = ESTACIONES.find(s => (s["Código_AEMET"] || s.Código_AEMET) == ID_ESTACION);
+  const est = ESTACIONES.find(s => (s["Código_AEMET"] || s.Codigo_AEMET) == ID_ESTACION);
   if (el) {
     el.textContent = est ? `${est.Nombre} — ${ID_ESTACION}` : `Estación ${ID_ESTACION}`;
   }
@@ -697,6 +916,8 @@ function refrescaDatos() {
   // actualiza datos con la estacion seleccionada
   cargaTiempoActual();
   cargaPrevision();
+  // CORRECCIÓN: También cargar previsión 7 días
+  cargaPrevision7Dias(CODIGO_MUNICIPIO);
   cargaHistoricoPresion();
 }
 
@@ -797,7 +1018,11 @@ function llenaSelectMunicipios() {
       CODIGO_MUNICIPIO = codigo;
       // busca nombre para etiqueta
       const m = MUNICIPIOS.find(x => x.codigo === codigo);
-      await cargaPrevision(codigo, m ? m.nombre : undefined);
+      // CORRECCIÓN: Cargar ambas previsiones
+      await Promise.all([
+        cargaPrevision(codigo, m ? m.nombre : undefined),
+        cargaPrevision7Dias(codigo, m ? m.nombre : undefined)
+      ]);
     });
   }
 
@@ -809,10 +1034,14 @@ function llenaSelectMunicipios() {
       if (!codigo) return;
       const m = MUNICIPIOS.find(x => x.codigo === codigo);
       CODIGO_MUNICIPIO = codigo;
-      await cargaPrevision(codigo, m ? m.nombre : undefined);
+      // CORRECCIÓN: Cargar ambas previsiones
+      await Promise.all([
+        cargaPrevision(codigo, m ? m.nombre : undefined),
+        cargaPrevision7Dias(codigo, m ? m.nombre : undefined)
+      ]);
     });
   }
 })();
 
 // Inicializa la aplicación
-inicializa();
+inicializa();;

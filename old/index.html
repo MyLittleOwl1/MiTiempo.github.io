@@ -1,11 +1,14 @@
 <!doctype html>
 <html lang="es">
+<!--Versión 1.4-->
+
 <head>
   <meta charset="utf-8" />
   <title>Meteo AEMET Móvil</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
   <div class="app">
     <header>
@@ -14,7 +17,7 @@
         <span class="badge">By Gaby</span>
       </div>
       <p class="subtitle">
-        Datos oficiales de AEMET: observación y predicción horaria en Córdoba-Aeropuerto
+        Datos oficiales de AEMET
       </p>
     </header>
 
@@ -23,6 +26,7 @@
       <div class="card-header">
         <div class="card-title">
           <!-- Título opcional -->
+           <p>Tª actual</p>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <div class="status-text" id="status-actual">Esperando datos…</div>
@@ -43,18 +47,17 @@
       <div class="current-main">
         <!-- CORRECCIÓN: Agrupamos Icono + Temperatura en un wrapper para alinearlos -->
         <div style="display:flex; align-items:center; gap:12px;">
-            <!-- Nuevo contenedor para el icono principal -->
-            <div id="icono-actual" style="display:flex; color:var(--color-accent);"></div>
-            
-            <div class="current-temp" id="temp-actual">
-              --<span>°C</span>
-            </div>
+          <!-- Nuevo contenedor para el icono principal -->
+          <div id="icono-actual" style="display:flex; color:var(--color-accent);"></div>
+
+          <div class="current-temp" id="temp-actual">
+            --<span>°C</span>
+          </div>
         </div>
 
         <div class="current-extra">
           <span id="humedad-actual">Humedad: -- %</span>
           <span id="presion-actual">Presión: -- hPa</span>
-          <button id="btn-refresca" class="btn-refresh" title="Refrescar datos" aria-label="Refrescar datos" style="margin-left:6px;">↻</button>
           <span id="actualizado-actual">Actualizado: --</span>
         </div>
       </div>
@@ -62,6 +65,8 @@
       <div class="chips">
         <span class="chip" id="chip-estacion">ID estación: —</span>
         <span class="chip" id="chip-fecha">Sin fecha</span>
+        <button id="btn-refresca" class="btn-refresh" title="Refrescar datos" aria-label="Refrescar datos"
+            style="margin-left:6px;">↻</button>
       </div>
 
       <p class="error hidden" id="error-actual"></p>
@@ -85,10 +90,10 @@
         <span id="last-update">—</span>
         <select id="municipio-select" class="mobile-select" aria-label="Municipio" style="margin-left:8px;"></select>
         <button id="btn-consulta-municipio" class="btn-refresh" title="Consultar municipio">
-        <span>👍</span> 
+          <span>👍</span>
         </button>
         <button id="btn-refresh" class="btn-refresh">
-        <span>↻</span>
+          <span>↻</span>
         </button>
       </div>
     </section>
@@ -108,13 +113,15 @@
         <table style="width:100%; border-collapse:collapse; font-size:0.7rem;">
           <thead>
             <tr>
-              <th colspan="4" style="text-align:center; padding:6px 2px; border-bottom:1px solid rgba(55,65,81,0.8); font-weight:700;font-size:1rem; color:var(--color-text);">
+              <th colspan="4"
+                style="text-align:center; padding:6px 2px; border-bottom:1px solid rgba(55,65,81,0.8); font-weight:700;font-size:1rem; color:var(--color-text);">
                 Datos por horas
               </th>
             </tr>
             <tr style="color:#9ca3af;">
               <th style="text-align:left; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Hora</th>
-              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Presión (hPa)</th>
+              <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Presión (hPa)
+              </th>
               <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Temp (°C)</th>
               <th style="text-align:right; padding:4px 2px; border-bottom:1px solid rgba(55,65,81,0.8);">Hum (%)</th>
             </tr>
@@ -129,6 +136,7 @@
       Fuente: AEMET OpenData. Esta aplicación no es oficial.
     </footer>
   </div>
-  <script src="script.js"></script>
+<script src="script.js"></script>
 </body>
+
 </html>

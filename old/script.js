@@ -1,3 +1,4 @@
+
 // ==========================
 // CONFIGURACIÓN BÁSICA
 // ==========================
@@ -110,7 +111,7 @@ function muestraPresion(valor) {
 function muestraActualizado(texto) {
   const el = document.getElementById("actualizado-actual");
   if (!el) return;
-  el.textContent = `Actualizado: ${texto || '--'}`;
+  el.textContent = `Actualizado: ${texto || '--'} `;
 }
 
 // Garantiza que existan los elementos current (si algún innerHTML los borró)
@@ -156,7 +157,7 @@ async function cargaTiempoActual() {
 
     // Elige el primer registro válido (último disponible)
     // Algunos endpoints devuelven array con el último primero, otros no; preferimos el último por fecha
-    datos.sort((a,b) => new Date(a.fint || a.fenomeno) - new Date(b.fint || b.fenomeno));
+    datos.sort((a, b) => new Date(a.fint || a.fenomeno) - new Date(b.fint || b.fenomeno));
     const reg = datos[datos.length - 1];
 
     const temp = reg.ta ?? reg.temperature ?? reg.tamin ?? reg.tamax ?? null;
@@ -397,19 +398,31 @@ async function cargaPrevision(codigoMunicipio = CODIGO_MUNICIPIO, nombreMunicipi
     validaApiKey();
     if (!codigoMunicipio) throw new Error("Código municipio no especificado.");
 
-    // Construye ruta para predicción horaria del municipio (AEMET)
-    // Endpoint: /api/prediccion/especifica/municipio/horaria/{codMunicipio}
     const ruta = `/api/prediccion/especifica/municipio/horaria/${codigoMunicipio}`;
     const data = await fetchAemet(ruta);
 
-    // 'data' puede ser un array con objetos 'prediccion' structure -> extract predict hourly
-    // dependemos de estructura existente (usa tu implementación ya presente)
     const listaHoras = extraeHorasPrediccion(data);
+
+    // --- CORRECCIÓN INICIO: Actualizar icono principal ---
+    // Usamos la predicción de la hora actual (el primer elemento de la lista)
+    // para poner el icono junto a la temperatura actual.
+    if (listaHoras && listaHoras.length > 0) {
+      const actual = listaHoras[0]; // La hora actual o más cercana
+      const iconoContainer = document.getElementById("icono-actual");
+      if (iconoContainer) {
+        iconoContainer.innerHTML = ""; // Limpiar anterior
+        const iconKey = mapCieloToIconKey(actual.cielo);
+        // Creamos el icono un poco más grande (size 48 o 56)
+        const iconEl = createIconElement(iconKey, 56, actual.cielo || "Tiempo actual");
+        iconoContainer.appendChild(iconEl);
+      }
+    }
+    // --- CORRECCIÓN FIN ---
+
     pintaPrevision(listaHoras, nombreMunicipio || document.getElementById("city-label").textContent);
 
-    // Actualiza label último update y estado
     const now = new Date();
-    document.getElementById("last-update").textContent = now.toLocaleString("es-ES", { hour:"2-digit", minute:"2-digit" });
+    document.getElementById("last-update").textContent = now.toLocaleString("es-ES", { hour: "2-digit", minute: "2-digit" });
     statusEl.textContent = " ";
   } catch (err) {
     console.error(err);
@@ -423,20 +436,46 @@ async function cargaPrevision(codigoMunicipio = CODIGO_MUNICIPIO, nombreMunicipi
 // ==========================
 
 async function cargaHistoricoPresion() {
-  // Ahora: presión por horas del día actual (no 7 días)
   const statusEl = document.getElementById("status-presion");
-  statusEl.textContent = "Cargando…";
+  // Limpiamos tabla y errores previos
+  const tbody = document.getElementById("tabla-presion-cuerpo");
+  if (tbody) tbody.innerHTML = "";
   limpiaError("error-presion");
+
+  statusEl.textContent = "Cargando datos...";
+
+  // --- NUEVO: ACTUALIZACIÓN DE ETIQUETA (Provincia - Estación) ---
+  // Lo hacemos antes de la petición para que el usuario vea qué está cargando
+  const estActual = ESTACIONES.find(e => (e["Código_AEMET"] || e.Codigo_AEMET) == ID_ESTACION);
+  if (estActual) {
+    const provincia = estActual.Provincia || "Provincia desc.";
+    const nombre = estActual.Nombre || "Estación desc.";
+    document.getElementById("presion-label").textContent = `${provincia} - ${nombre}`;
+  } else {
+    document.getElementById("presion-label").textContent = `Estación ${ID_ESTACION}`;
+  }
+  // ---------------------------------------------------------------
 
   try {
     validaApiKey();
 
-    // Usamos de nuevo la observación convencional (últimas 24 h de la estación)
     const ruta = `/api/observacion/convencional/datos/estacion/${ID_ESTACION}`;
-    const data = await fetchAemet(ruta);
 
+    // Intentamos la petición
+    let data;
+    try {
+      data = await fetchAemet(ruta);
+    } catch (e) {
+      // Si falla el fetch específico (404 o similar), asumimos que no hay datos
+      statusEl.textContent = "No existen datos en la citada estación";
+      return; // Salimos suavemente
+    }
+
+    // --- NUEVO: CONTROL DE "SIN DATOS" ---
+    // Si devuelve un array vacío o inválido, mostramos el mensaje que pediste
     if (!Array.isArray(data) || data.length === 0) {
-      throw new Error("Sin datos de observación para la estación indicada.");
+      statusEl.textContent = "No existen datos en la citada estación";
+      return; // Salimos sin lanzar error rojo
     }
 
     const hoy = new Date();
@@ -457,8 +496,10 @@ async function cargaHistoricoPresion() {
       );
     });
 
+    // Si hay datos históricos pero ninguno de hoy:
     if (deHoy.length === 0) {
-      throw new Error("Sin datos de hoy para la estación.");
+      statusEl.textContent = "No existen datos recientes (hoy) en la citada estación";
+      return;
     }
 
     // Ordena por hora ascendente
@@ -468,7 +509,7 @@ async function cargaHistoricoPresion() {
       return fa - fb;
     });
 
-    // Actualiza la fecha en la cabecera (formato dd/mm/aaaa) usando la fecha del primer registro
+    // Actualiza fecha cabecera
     const elFechaCab = document.getElementById("presion-fecha");
     if (elFechaCab && deHoy[0]) {
       const fechaRegistro = new Date(deHoy[0].fint || deHoy[0].fenomeno || Date.now());
@@ -478,10 +519,8 @@ async function cargaHistoricoPresion() {
         year: "numeric"
       });
     }
-    
-    const tbody = document.getElementById("tabla-presion-cuerpo");
-    tbody.innerHTML = "";
 
+    // Rellenar tabla
     deHoy.forEach(reg => {
       const f = new Date(reg.fint || reg.fenomeno);
       const hora = f.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
@@ -498,20 +537,17 @@ async function cargaHistoricoPresion() {
       const tdPres = document.createElement("td");
       tdPres.style.padding = "4px 2px";
       tdPres.style.textAlign = "right";
-      tdPres.textContent =
-        pres != null && isFinite(Number(pres)) ? Number(pres).toFixed(1) : "—";
+      tdPres.textContent = pres != null && isFinite(Number(pres)) ? Number(pres).toFixed(1) : "—";
 
       const tdTemp = document.createElement("td");
       tdTemp.style.padding = "4px 2px";
       tdTemp.style.textAlign = "right";
-      tdTemp.textContent =
-        temp != null && isFinite(Number(temp)) ? Number(temp).toFixed(1) : "—";
+      tdTemp.textContent = temp != null && isFinite(Number(temp)) ? Number(temp).toFixed(1) : "—";
 
       const tdHum = document.createElement("td");
       tdHum.style.padding = "4px 2px";
       tdHum.style.textAlign = "right";
-      tdHum.textContent =
-        hum != null && isFinite(Number(hum)) ? Number(hum).toFixed(0) : "—";
+      tdHum.textContent = hum != null && isFinite(Number(hum)) ? Number(hum).toFixed(0) : "—";
 
       tr.appendChild(tdHora);
       tr.appendChild(tdPres);
@@ -520,17 +556,18 @@ async function cargaHistoricoPresion() {
       tbody.appendChild(tr);
     });
 
-    document.getElementById("presion-label").textContent = "CÓRDOBA AEROPUERTO, ESPAÑA";
+    // Todo correcto
     statusEl.textContent = "";
+
+    // Nota: Ya no actualizamos el label aquí abajo porque lo hicimos al principio de la función.
+
   } catch (err) {
     console.error(err);
-    statusEl.textContent = "Error al cargar";
-    muestraError(
-      "error-presion",
-      "No se ha podido obtener la presión horaria de hoy. Revisa la API Key, el ID de estación o inténtalo más tarde."
-    );
+    statusEl.textContent = "Error al procesar datos";
+    muestraError("error-presion", err.message);
   }
 }
+
 
 // ==========================
 // INICIALIZACIÓN
@@ -585,7 +622,7 @@ async function cargaListaEstaciones() {
     ESTACIONES = await resp.json();
 
     // Provincias (unicas y ordenadas)
-    const provincias = Array.from(new Set(ESTACIONES.map(s => s.Provincia).filter(Boolean))).sort((a,b)=> a.localeCompare(b, 'es'));
+    const provincias = Array.from(new Set(ESTACIONES.map(s => s.Provincia).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
     const selectProv = document.getElementById("provincia-select");
     selectProv.innerHTML = '<option value="">— Selecciona provincia —</option>';
     provincias.forEach(p => {
@@ -609,7 +646,14 @@ async function cargaListaEstaciones() {
     }
 
     // listeners
-    selectProv.addEventListener("change", (e) => llenaSelectEstaciones(e.target.value));
+    //selectProv.addEventListener("change", (e) => llenaSelectEstaciones(e.target.value));
+    // --- MODIFICADO: Al cambiar provincia, actualiza ESTACIONES y MUNICIPIOS ---
+    selectProv.addEventListener("change", (e) => {
+      const prov = e.target.value;
+      llenaSelectEstaciones(prov);  // Rellena el select de estaciones
+      llenaSelectMunicipios();      // Rellena el select de municipios (usa el valor del selectProv internamente)
+    });
+
     document.getElementById("estacion-select").addEventListener("change", (e) => {
       ID_ESTACION = e.target.value;
       actualizaEtiquetaEstacion();
@@ -632,7 +676,7 @@ function llenaSelectEstaciones(provincia) {
   const selectEst = document.getElementById("estacion-select");
   selectEst.innerHTML = '<option value="">— Selecciona estación —</option>';
   const estacionesProv = ESTACIONES.filter(s => (s.Provincia || "").trim().toLowerCase() === (provincia || "").trim().toLowerCase());
-  estacionesProv.sort((a,b)=> (a.Nombre||"").localeCompare(b.Nombre || "", 'es'));
+  estacionesProv.sort((a, b) => (a.Nombre || "").localeCompare(b.Nombre || "", 'es'));
   estacionesProv.forEach(est => {
     const opt = document.createElement("option");
     opt.value = est["Código_AEMET"] || est.Código_AEMET;
@@ -685,8 +729,8 @@ async function cargaMunicipiosDesdeCSV(path = "codigos-municipales_UTF8.csv") {
     const result = lines.map(line => {
       const parts = line.split(";").map(p => p.trim());
       const codigo = (parts[idxCodigo] || parts[0] || "").replace(/"/g, "");
-      const nombre = (parts[idxNombre] || parts[1] || "").replace(/"/g,"");
-      const provincia = idxProvincia >= 0 ? (parts[idxProvincia] || "").replace(/"/g,"") : "";
+      const nombre = (parts[idxNombre] || parts[1] || "").replace(/"/g, "");
+      const provincia = idxProvincia >= 0 ? (parts[idxProvincia] || "").replace(/"/g, "") : "";
       return { codigo, nombre, provincia, filaRaw: line };
     }).filter(r => r.codigo && r.nombre);
 
@@ -701,22 +745,40 @@ async function cargaMunicipiosDesdeCSV(path = "codigos-municipales_UTF8.csv") {
 
 function llenaSelectMunicipios() {
   const sel = document.getElementById("municipio-select");
+  const provSelect = document.getElementById("provincia-select");
+
   if (!sel) return;
+
+  // Leemos la provincia seleccionada en ese momento
+  const provinciaSeleccionada = provSelect ? provSelect.value.trim().toUpperCase() : "";
+
   sel.innerHTML = "";
-  // Opcional: agrega opción de placeholder
+
+  // Placeholder inteligente
   const ph = document.createElement("option");
   ph.value = "";
-  ph.textContent = "Elige municipio...";
+  ph.textContent = provinciaSeleccionada
+    ? `— Municipios de ${provinciaSeleccionada} —`
+    : "Elige municipio...";
   sel.appendChild(ph);
 
-  MUNICIPIOS.forEach(m => {
+  // Filtramos la lista global MUNICIPIOS
+  const filtrados = MUNICIPIOS.filter(m => {
+    if (!provinciaSeleccionada) return true;
+    return (m.provincia || "").toUpperCase() === provinciaSeleccionada;
+  });
+
+  // Rellenamos
+  filtrados.forEach(m => {
     const opt = document.createElement("option");
     opt.value = m.codigo;
-    opt.textContent = m.provincia ? `${m.nombre} (${m.provincia})` : m.nombre;
+    opt.textContent = m.nombre;
     if (m.codigo === CODIGO_MUNICIPIO) opt.selected = true;
     sel.appendChild(opt);
   });
 }
+
+
 
 // Botón/even listener: toma el código seleccionado y recarga la previsión
 (function attachMunicipalListeners() {
